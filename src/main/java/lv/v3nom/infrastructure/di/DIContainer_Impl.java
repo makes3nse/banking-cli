@@ -3,7 +3,9 @@ package lv.v3nom.infrastructure.di;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 
 public class DIContainer_Impl implements DIContainer {
     Map<Class<?>, Class<?>> dependencies = new HashMap<>();
@@ -13,13 +15,27 @@ public class DIContainer_Impl implements DIContainer {
     }
 
     public <T> T resolve(Class<T> type){
-        Class<?> implementation = dependencies.get(type);
-
-        if (implementation == null) {
-            implementation = type;
+        return resolveWithTracking(type, new HashSet<>());
+    }
+    public <T> T resolveWithTracking(Class<T> type, Set<Class<?>> resolvingStack) {
+        if (resolvingStack.contains(type)) {
+            throw new IllegalStateException(
+                    String.format(
+                            "ERR: Circular Dependency, path: %s",
+                            buildCircularPath(resolvingStack, type)
+                    )
+            );
         }
 
+        resolvingStack.add(type);
+
         try {
+            Class<?> implementation = dependencies.get(type);
+
+            if (implementation == null) {
+                implementation = type;
+            }
+
             Constructor[] constructors = implementation.getDeclaredConstructors();
             Constructor<?> targetConstructor = constructors[0];
 
@@ -33,17 +49,29 @@ public class DIContainer_Impl implements DIContainer {
             Object[] dependencyInstances = new Object[parameterTypes.length];
 
             for (int i = 0; i < parameterTypes.length; i++) {
-                dependencyInstances[i] = resolve(parameterTypes[i]);
+                dependencyInstances[i] = resolveWithTracking(parameterTypes[i], resolvingStack);
             }
 
-            return (T) targetConstructor.newInstance(dependencyInstances);
+            T instance = (T) targetConstructor.newInstance(dependencyInstances);
 
-        } catch (InstantiationException e) {
-            throw new RuntimeException(e);
-        } catch (IllegalAccessException e) {
-            throw new RuntimeException(e);
-        } catch (InvocationTargetException e) {
-            throw new RuntimeException(e);
+            resolvingStack.remove(type);
+
+            return instance;
+
+        } catch (InstantiationException | IllegalAccessException | InvocationTargetException e) {
+            resolvingStack.remove(type);
+            throw new RuntimeException("Failed to create instance of " + type.getName(), e);
         }
+    }
+
+    private String buildCircularPath(Set<Class<?>> resolvingStack, Class<?> circularType) {
+        StringBuilder path = new StringBuilder();
+
+        for (Class<?> clazz : resolvingStack) {
+            path.append(clazz.getSimpleName()).append(" -> ");
+        }
+        path.append(circularType.getSimpleName());
+
+        return path.toString();
     }
 }
