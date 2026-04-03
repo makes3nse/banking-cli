@@ -45,6 +45,8 @@ public class DIContainer_Impl implements DIContainer {
                 }
             }
 
+            targetConstructor.setAccessible(true);
+
             Class<?>[] parameterTypes = targetConstructor.getParameterTypes();
             Object[] dependencyInstances = new Object[parameterTypes.length];
 
@@ -53,8 +55,8 @@ public class DIContainer_Impl implements DIContainer {
             }
 
             T instance = (T) targetConstructor.newInstance(dependencyInstances);
-
             resolvingStack.remove(type);
+            targetConstructor.setAccessible(false);
 
             return instance;
 
