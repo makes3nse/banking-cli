@@ -1,13 +1,12 @@
-package lv.v3nom.infrastructure.util;
+package lv.v3nom.common.util;
+
+import lv.v3nom.common.rules.IdGenerationRules;
 
 import java.util.Random;
 
 public class IdGenerator {
     private static final Random random = new Random();
     private static final Integer length = 15;
-    private static final String characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-                        + "abcdefghijklmnopqrstuvwxyz"
-                        + "0123456789";
 
     public static String generateDigitId() {
         StringBuilder result = new StringBuilder(length);
@@ -20,8 +19,8 @@ public class IdGenerator {
     public static String  generateAsciiId() {
         StringBuilder id = new StringBuilder(length);
         for (int i = 0; i < length; i++) {
-            int index = random.nextInt(characters.length());
-            id.append(characters.charAt(index));
+            int index = random.nextInt(IdGenerationRules.CHARACTERS.length());
+            id.append(IdGenerationRules.CHARACTERS.charAt(index));
         }
         return id.toString();
     }
