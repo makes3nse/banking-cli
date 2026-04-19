@@ -8,39 +8,46 @@ import lv.v3nom.domain.value.PhoneNumber;
 import java.util.Optional;
 
 public class CustomerNotFoundException extends RuntimeException {
-    private final Optional<CustomerId> customerId;
-    private final Optional<EmailAddress> emailAddress;
-    private final Optional<PhoneNumber> phoneNumber;
-    private final Optional<CustomerStatus> customerStatus;
+    private final CustomerId customerId;
+    private final EmailAddress emailAddress;
+    private final PhoneNumber phoneNumber;
+    private final CustomerStatus customerStatus;
 
-    public CustomerNotFoundException(Optional<CustomerId> customerId,
-                                     Optional<EmailAddress> emailAddress,
-                                     Optional<PhoneNumber> phoneNumber,
-                                     Optional<CustomerStatus> customerStatus) {
-        super(buildMessage(customerId, emailAddress, phoneNumber, customerStatus));
+    public CustomerNotFoundException(CustomerId customerId) {
+        super("Customer not found with id=" + customerId.getValue());
 
         this.customerId = customerId;
+        this.emailAddress = null;
+        this.phoneNumber = null;
+        this.customerStatus = null;
+    }
+    public CustomerNotFoundException(EmailAddress emailAddress) {
+        super("Customer not found with email=" + emailAddress.getValue());
+
+        this.customerId = null;
         this.emailAddress = emailAddress;
+        this.phoneNumber = null;
+        this.customerStatus = null;
+    }
+    public CustomerNotFoundException(PhoneNumber phoneNumber) {
+        super("Customer not found with id=" + phoneNumber.getValue());
+
+        this.customerId = null;
+        this.emailAddress = null;
         this.phoneNumber = phoneNumber;
+        this.customerStatus = null;
+    }
+    public CustomerNotFoundException(CustomerStatus customerStatus) {
+        super("Customer not found with id=" + customerStatus.getValue());
+
+        this.customerId = null;
+        this.emailAddress = null;
+        this.phoneNumber = null;
         this.customerStatus = customerStatus;
     }
 
-    private static String buildMessage(Optional<CustomerId> customerId,
-                                Optional<EmailAddress> emailAddress,
-                                Optional<PhoneNumber> phoneNumber,
-                                Optional<CustomerStatus> customerStatus) {
-        StringBuilder message = new StringBuilder("Customer not found with:");
-
-        customerId.ifPresent(id -> message.append(" id=").append(id));
-        emailAddress.ifPresent(email -> message.append(" email=").append(email));
-        phoneNumber.ifPresent(phone -> message.append(" phone=").append(phone));
-        customerStatus.ifPresent(status -> message.append(" status=").append(status));
-
-        return message.toString();
-    }
-
-    public Optional<CustomerId> getCustomerId() { return customerId; }
-    public Optional<EmailAddress> getEmailAddress() { return emailAddress; }
-    public Optional<PhoneNumber> getPhoneNumber() { return phoneNumber; }
-    public Optional<CustomerStatus> getCustomerStatus() { return customerStatus; }
+    public CustomerId getCustomerId() { return customerId; }
+    public EmailAddress getEmailAddress() { return emailAddress; }
+    public PhoneNumber getPhoneNumber() { return phoneNumber; }
+    public CustomerStatus getCustomerStatus() { return customerStatus; }
 }
