@@ -1,6 +1,6 @@
-package lv.v3nom.infrastructure.util.impl;
+package lv.v3nom.infrastructure.time.impl;
 
-import lv.v3nom.infrastructure.util.DateTimeProvider;
+import lv.v3nom.infrastructure.time.DateTimeProvider;
 
 import java.time.LocalDateTime;
 

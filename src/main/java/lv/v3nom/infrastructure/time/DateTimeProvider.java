@@ -1,4 +1,4 @@
-package lv.v3nom.infrastructure.util;
+package lv.v3nom.infrastructure.time;
 
 import java.time.LocalDateTime;
 
