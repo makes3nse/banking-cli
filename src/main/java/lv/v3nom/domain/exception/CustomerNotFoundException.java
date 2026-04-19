@@ -13,6 +13,14 @@ public class CustomerNotFoundException extends RuntimeException {
     private final PhoneNumber phoneNumber;
     private final CustomerStatus customerStatus;
 
+    public CustomerNotFoundException() {
+        super("Customers not found");
+
+        this.customerId = null;
+        this.emailAddress = null;
+        this.phoneNumber = null;
+        this.customerStatus = null;
+    }
     public CustomerNotFoundException(CustomerId customerId) {
         super("Customer not found with id=" + customerId.getValue());
 
