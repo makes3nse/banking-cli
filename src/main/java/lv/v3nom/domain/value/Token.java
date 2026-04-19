@@ -5,9 +5,8 @@ import lv.v3nom.infrastructure.util.impl.SystemDateTimeProvider;
 import java.time.LocalDateTime;
 import java.util.Objects;
 
+@SuppressWarnings("ClassCanBeRecord")
 public final class Token {
-    SystemDateTimeProvider clock = new SystemDateTimeProvider();
-
     private final String value;
     private final LocalDateTime expiry;
     private final CustomerId customerId;
@@ -44,8 +43,8 @@ public final class Token {
     public CustomerId getCustomerId() {
         return this.customerId;
     }
-    public boolean isValid() {
-        return clock.now().isBefore(expiry);
+    public boolean isValid(LocalDateTime now) {
+        return this.expiry.isAfter(now);
     }
 
     @Override
