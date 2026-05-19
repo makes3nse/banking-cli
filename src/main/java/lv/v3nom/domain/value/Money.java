@@ -60,9 +60,6 @@ public final class Money implements Comparable<Money>{
     public boolean isPositive() {
         return this.amount.compareTo(BigDecimal.ZERO) > 0;
     }
-    public BigDecimal getAmount() {
-        return this.amount;
-    }
 
     // HELPERS
     @Override
@@ -84,4 +81,6 @@ public final class Money implements Comparable<Money>{
     public String toString() {
         return this.amount.toPlainString();
     }
+
+    public BigDecimal getValue() { return this.amount; }
 }
