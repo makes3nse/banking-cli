@@ -40,10 +40,6 @@ public final class PhoneNumber {
         return new PhoneNumber(existingNumber);
     }
 
-    public String getValue() {
-        return value;
-    }
-
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
@@ -51,9 +47,10 @@ public final class PhoneNumber {
         PhoneNumber that = (PhoneNumber) o;
         return value.equals(that.value);
     }
-
     @Override
     public int hashCode() {
         return value.hashCode();
     }
+
+    public String getValue() { return this.value; }
 }
