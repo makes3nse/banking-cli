@@ -19,9 +19,6 @@ public final class CustomerId {
     public static CustomerId of(String existingId) {
         return new CustomerId(existingId);
     }
-    public String getValue() {
-        return value;
-    }
 
     @Override
     public boolean equals(Object o) {
@@ -41,4 +38,6 @@ public final class CustomerId {
                 value
         );
     }
+
+    public String getValue() { return this.value; }
 }
