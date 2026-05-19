@@ -21,7 +21,6 @@ public final class IdempotencyKey {
     public static IdempotencyKey of(String value) {
         return new IdempotencyKey(value);
     }
-
     public static IdempotencyKey generate() {
         return new IdempotencyKey(UUID.randomUUID().toString());
     }
