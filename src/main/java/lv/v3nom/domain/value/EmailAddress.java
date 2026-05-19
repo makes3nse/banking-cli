@@ -10,19 +10,15 @@ public final class EmailAddress {
         if (value == null || value.isBlank()) {
             throw new IllegalArgumentException("Email address cannot be blank or null");
         }
-        this.value = value;
-    }
-
-    public static EmailAddress of(String value) {
         String regex = "^.+@.+\\..+$";
         if (!Pattern.matches(regex, value)) {
             throw new IllegalArgumentException("Provided string is not an email");
         }
-        return new EmailAddress(value);
+        this.value = value;
     }
 
-    public String getValue() {
-        return value;
+    public static EmailAddress of(String value) {
+        return new EmailAddress(value);
     }
 
     @Override
@@ -32,9 +28,10 @@ public final class EmailAddress {
         EmailAddress that = (EmailAddress) o;
         return value.equals(that.value);
     }
-
     @Override
     public int hashCode() {
         return value.hashCode();
     }
+
+    public String getValue() { return value; }
 }
