@@ -16,14 +16,10 @@ public final class AccountId {
     public static AccountId generate() {
         return new AccountId(IdGenerator.generateDigitId());
     }
-
     public static AccountId of(String existingId) {
         return new AccountId(existingId);
     }
 
-    public String getValue() {
-        return value;
-    }
 
     @Override
     public boolean equals(Object o) {
@@ -36,9 +32,10 @@ public final class AccountId {
         AccountId that = (AccountId) o;
         return value.equals(that.value);
     }
-
     @Override
     public int hashCode() {
         return value.hashCode();
     }
+
+    public String getValue() { return this.value; }
 }
