@@ -16,13 +16,8 @@ public final class TransactionId {
     public static TransactionId generate() {
         return new TransactionId(IdGenerator.generateAsciiId());
     }
-
     public static TransactionId of(String existingId) {
         return new TransactionId(existingId);
-    }
-
-    public String getValue() {
-        return value;
     }
 
     @Override
@@ -32,9 +27,10 @@ public final class TransactionId {
         TransactionId that = (TransactionId) o;
         return value.equals(that.value);
     }
-
     @Override
     public int hashCode() {
         return value.hashCode();
     }
+
+    public String getValue() { return this.value; }
 }
