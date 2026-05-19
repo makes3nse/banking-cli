@@ -38,26 +38,10 @@ public final class Token {
         return new Token(value, expiry, customerId);
     }
 
-    public String getValue() {
-        return this.value;
-    }
-    public LocalDateTime getExpiry() {
-        return this.expiry;
-    }
-    public CustomerId getCustomerId() {
-        return this.customerId;
-    }
     public boolean isValid(LocalDateTime now) {
         return this.expiry.isAfter(now);
     }
 
-    @Override
-    public String toString() {
-        return String.format(
-                "token{expiry:%s, customerId:%s}",
-                expiry, customerId
-        );
-    }
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
@@ -71,4 +55,15 @@ public final class Token {
     public int hashCode() {
         return Objects.hash(value, expiry, customerId);
     }
+    @Override
+    public String toString() {
+        return String.format(
+                "%s{expiry:%s, customerId:%s}",
+                value, expiry, customerId
+        );
+    }
+
+    public String getValue() { return this.value; }
+    public LocalDateTime getExpiry() { return this.expiry; }
+    public CustomerId getCustomerId() { return this.customerId; }
 }
