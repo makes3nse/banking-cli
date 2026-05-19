@@ -35,12 +35,6 @@ public final class TransactionType {
     public static final TransactionType INTEREST =
             new TransactionType("INT", "INTEREST", true, false);
 
-    public String getTransactionCode() {
-        return transactionCode;
-    }
-    public String getTransactionName() {
-        return transactionName;
-    }
     public boolean affectsBalance() {
         return affectsBalance;
     }
@@ -55,10 +49,11 @@ public final class TransactionType {
         TransactionType that = (TransactionType) o;
         return transactionCode.equals(that.transactionCode);
     }
-
     @Override
     public int hashCode() { return Objects.hash(transactionCode); }
-
     @Override
     public String toString() { return transactionName; }
+
+    public String getTransactionCode() { return transactionCode; }
+    public String getTransactionName() { return transactionName; }
 }
