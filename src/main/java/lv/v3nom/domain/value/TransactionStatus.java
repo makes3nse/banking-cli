@@ -21,8 +21,6 @@ public final class TransactionStatus {
     public static final TransactionStatus RETURNED =
             new TransactionStatus("RETURNED");
 
-    public String getValue() { return this.value; }
-
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
@@ -34,4 +32,6 @@ public final class TransactionStatus {
     public int hashCode() {
         return this.value.hashCode();
     }
+
+    public String getValue() { return this.value; }
 }
