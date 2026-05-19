@@ -22,8 +22,6 @@ public final class AccountStatus {
     public static final AccountStatus BLOCKED =
             new AccountStatus("BLOCKED");
 
-    public String getValue() { return this.value; }
-
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
@@ -33,4 +31,6 @@ public final class AccountStatus {
     }
     @Override
     public int hashCode() { return this.value.hashCode(); }
+
+    public String getValue() { return this.value; }
 }
