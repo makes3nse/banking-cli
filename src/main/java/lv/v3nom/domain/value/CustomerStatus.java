@@ -21,10 +21,6 @@ public final class CustomerStatus {
     public static final CustomerStatus CLOSED =
             new CustomerStatus("CLOSED");
 
-    public String getValue() {
-        return this.value;
-    }
-
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
@@ -36,4 +32,6 @@ public final class CustomerStatus {
     public int hashCode() {
         return this.value.hashCode();
     }
+
+    public String getValue() { return this.value; }
 }
