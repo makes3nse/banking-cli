@@ -13,7 +13,9 @@ This project simulates a banking system with a CLI interface, following clean ar
 
 ## Features
 
-- Customer registration and token-based authentication (JWT-like simulation)
+- Customer registration interactions (login, sign up, profile mgmt)
+- SessionToken-based authentication 
+- JWT implementation
 - Account management (create, check balance)
 - Transactions (deposit, withdraw, transfer)
 - Transaction history viewing
@@ -37,7 +39,8 @@ CLI → Service → Repository → Domain
 ## Key Design Decisions
 
 - **Storage**: In-memory (`Map<ID, Entity>`)
-- **IDs**: Digit and/or ASCII identifiers
+- **IDs**: Digit and ASCII identifiers / UUID
+- **Tokens**: Session Token, JWT
 - **Money**: `BigDecimal` or cents (long)
 - **Validation**: No negative transfers, sufficient balance checks, valid token enforcement
 
