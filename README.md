@@ -14,7 +14,8 @@ This project simulates a banking system with a CLI interface, following clean ar
 ## Features
 
 - Customer registration interactions (login, sign up, profile mgmt)
-- SessionToken-based authentication 
+- Session Token
+- Refresh Token authentication 
 - JWT implementation
 - Account management (create, check balance)
 - Transactions (deposit, withdraw, transfer)
@@ -38,19 +39,20 @@ CLI → Service → Repository → Domain
 
 ## Key Design Decisions
 
-- **Storage**: In-memory (`Map<ID, Entity>`)
+- **Storage**: In-memory (`Map<ID, Entity>`) + JSON locally [Future upgrade: PostgreSQL]
 - **IDs**: Digit and ASCII identifiers / UUID
-- **Tokens**: Session Token, JWT
-- **Money**: `BigDecimal` or cents (long)
-- **Validation**: No negative transfers, sufficient balance checks, valid token enforcement
+- **Tokens**: Session Token, Refresh token, JWT, Idempotency Key
+- **Money**: `BigDecimal` or cents (single currency) [Future upgrade: multiple currencies]
+- **Validation**: No negative transfers, sufficient balance checks, valid token enforcement, operation idempotency validation
 
 ## Project Structure
 
 - `cli/` - User interface layer (commands, menu, input parsing)
-- `application/` - Service interfaces, implementations, DTOs
+- `application/` - Service interfaces, implementations, DTOs, mappers
 - `domain/` - Core business models, value objects, exceptions
-- `infrastructure/` - Repositories, security simulation, utilities
+- `common/` - Layer-wide shared modules of general purpose (Rules, Generators)
+- `infrastructure/` - Repositories, security, utilities
 
 ## Purpose
 
-This is **not** a production banking system. It's a controlled test environment to validate DI container behavior—service graphs, circular dependencies, scopes, and lifecycle hooks—within a coherent, understandable domain that can be tested for its ability to handle various loads and for security vulnerabilities.
+Controlled environment to validate DI container behavior—service graphs, circular dependencies, scopes, and lifecycle hooks—within a coherent, understandable domain that can be tested for its ability to handle various loads and for security vulnerabilities.
