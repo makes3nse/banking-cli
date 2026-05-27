@@ -2,13 +2,15 @@ package lv.v3nom.application.dto.responses;
 
 import java.math.BigDecimal;
 
-public class BalanceResponse {
+public class ViewBalanceResponse {
     private String accountId;
     private String status;
     private BigDecimal balance;
 
-    public BalanceResponse() {}
-    public BalanceResponse(String accountId, String status, BigDecimal balance) {
+    public ViewBalanceResponse() {}
+    public ViewBalanceResponse(String accountId,
+                               String status,
+                               BigDecimal balance) {
         this.accountId = accountId;
         this.status = status;
         this.balance = balance;
