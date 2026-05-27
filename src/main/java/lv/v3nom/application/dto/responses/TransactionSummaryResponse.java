@@ -16,7 +16,7 @@ public class TransactionSummaryResponse {
         this.transactionId = transaction.getTransactionId().getValue();
         this.type = transaction.getTransactionType().getTransactionName();
         this.status = transaction.getTransactionStatus().getValue();
-        this.amount = transaction.getAmount().getAmount();
+        this.amount = transaction.getAmount().getValue();
         this.createdAt = transaction.getCreatedAt().toString();
         this.completedAt = transaction.getCompletedAt().toString();
     }
