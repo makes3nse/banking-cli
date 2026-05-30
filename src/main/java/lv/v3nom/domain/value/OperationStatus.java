@@ -1,0 +1,54 @@
+package lv.v3nom.domain.value;
+
+public final class OperationStatus {
+    private final String value;
+    private final boolean isOperational;
+    private final String description;
+
+    private OperationStatus(String value,
+                            boolean isOperational,
+                            String description) {
+
+        if (value == null || value.isBlank()) {
+            throw new IllegalArgumentException("Operation Status cannot be null or empty");
+        }
+
+        this.value = value;
+        this.isOperational = isOperational;
+        this.description = description;
+    }
+
+    public static OperationStatus of(String value,
+                                     boolean isOperational,
+                                     String description) {
+
+        return new OperationStatus(value, isOperational, description);
+    }
+
+    public static final OperationStatus PROCESSING =
+            new OperationStatus("PROCESSING", true, "");
+    public static final OperationStatus SUCCESS =
+            new OperationStatus("SUCCESS", true, "");
+    public static final OperationStatus FAILURE =
+            new OperationStatus("FAILURE", false, "");
+
+    @Override
+    public boolean equals(Object o) {
+        if (o == this) return true;
+        if (o == null || o.getClass() != this.getClass()) return false;
+        OperationStatus that = (OperationStatus) o;
+        return this.value.equals(that.value);
+    }
+    @Override
+    public int hashCode() {
+        return this.value.hashCode();
+    }
+    @Override
+    public String toString() {
+        return String.format(value + ":" + description);
+    }
+
+    public String getValue() { return value; }
+    public boolean isOperational() { return isOperational; }
+    public String getDescription() { return description; }
+}
