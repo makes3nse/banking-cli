@@ -1,5 +1,7 @@
 package lv.v3nom.application.dto.responses;
 
+import lv.v3nom.domain.value.Currency;
+
 import java.math.BigDecimal;
 
 public class TransactionResponse {
@@ -8,6 +10,7 @@ public class TransactionResponse {
     private String status;
     private String sourceAccountId;
     private String targetAccountId;
+    private String currency;
     private BigDecimal amount;
     private String failureReason; // blank most times
     private String createdAt;
@@ -22,6 +25,7 @@ public class TransactionResponse {
                                String status,
                                String sourceAccountId,
                                String targetAccountId,
+                               String currency,
                                BigDecimal amount,
                                String failureReason,
                                String createdAt,
@@ -34,6 +38,7 @@ public class TransactionResponse {
         this.status = status;
         this.sourceAccountId = sourceAccountId;
         this.targetAccountId = targetAccountId;
+        this.currency = currency;
         this.amount = amount;
         this.failureReason = failureReason;
         this.createdAt = createdAt;
@@ -47,6 +52,7 @@ public class TransactionResponse {
     public String getStatus() { return status; }
     public String getSourceAccountId() { return sourceAccountId; }
     public String getTargetAccountId() { return targetAccountId; }
+    public String getCurrency() { return currency; }
     public BigDecimal getAmount() { return amount; }
     public String getFailureReason() { return failureReason; }
     public String getCreatedAt() { return createdAt; }
