@@ -6,19 +6,25 @@ public class CustomerResponse {
     private String email;
     private String phone;
     private String status;
+    private String operationStatus;
+    private String errorMessage;
 
     public CustomerResponse() {}
     public CustomerResponse(String customerId,
                             String name,
                             String email,
                             String phone,
-                            String status) {
+                            String status,
+                            String operationStatus,
+                            String errorMessage) {
 
         this.customerId = customerId;
         this.name = name;
         this.email = email;
         this.phone = phone;
         this.status = status;
+        this.operationStatus = operationStatus;
+        this.errorMessage = errorMessage;
     }
 
     public String getCustomerId() { return customerId; }
@@ -26,4 +32,6 @@ public class CustomerResponse {
     public String getEmail() { return email; }
     public String getPhone() { return phone; }
     public String getStatus() { return status; }
+    public String getOperationStatus() { return operationStatus; }
+    public String getErrorMessage() { return errorMessage; }
 }
