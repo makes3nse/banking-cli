@@ -1,12 +1,12 @@
 package lv.v3nom.domain.model;
 
 import lv.v3nom.domain.value.*;
-import lv.v3nom.infrastructure.util.impl.SystemDateTimeProvider;
 
 import java.time.LocalDateTime;
 
 public class Transaction {
     private final TransactionId transactionId;
+    private final Currency currency;
     private final Money amount;
     private final AccountId sourceAccount;
     private final AccountId targetAccount;
@@ -18,13 +18,16 @@ public class Transaction {
     private String rejectReason;
 
     private Transaction(TransactionId transactionId,
-                       Money amount,
-                       AccountId sourceAccount,
-                       AccountId targetAccount,
-                       TransactionType transactionType,
-                       TransactionStatus transactionStatus,
-                       LocalDateTime createdAt) {
+                        Currency currency,
+                        Money amount,
+                        AccountId sourceAccount,
+                        AccountId targetAccount,
+                        TransactionType transactionType,
+                        TransactionStatus transactionStatus,
+                        LocalDateTime createdAt) {
+
         this.transactionId = transactionId;
+        this.currency = currency;
         this.amount = amount;
         this.sourceAccount = sourceAccount;
         this.targetAccount = targetAccount;
@@ -35,11 +38,13 @@ public class Transaction {
 
     // newborn transaction states
     public static Transaction createDepositRecord(TransactionId transactionId,
+                                                  Currency currency,
                                                   Money amount,
                                                   AccountId targetAccount,
                                                   LocalDateTime createdAt) {
         return new Transaction(
                 transactionId,
+                currency,
                 amount,
                 targetAccount,
                 targetAccount,
@@ -48,11 +53,13 @@ public class Transaction {
                 createdAt);
     }
     public static Transaction createWithdrawalRecord(TransactionId transactionId,
+                                                     Currency currency,
                                                      Money amount,
                                                      AccountId sourceAccount,
                                                      LocalDateTime createdAt) {
         return new Transaction(
                 transactionId,
+                currency,
                 amount,
                 sourceAccount,
                 sourceAccount,
@@ -61,12 +68,14 @@ public class Transaction {
                 createdAt);
     }
     public static Transaction createTransferRecord(TransactionId transactionId,
+                                                   Currency currency,
                                                    Money amount,
                                                    AccountId sourceAccount,
                                                    AccountId targetAccount,
                                                    LocalDateTime createdAt) {
         return new Transaction(
                 transactionId,
+                currency,
                 amount,
                 sourceAccount,
                 targetAccount,
@@ -76,31 +85,29 @@ public class Transaction {
     }
 
     // final transaction states
-    public void completeTran() {
+    public void complete(LocalDateTime completedAt) {
         if (this.transactionStatus != TransactionStatus.PENDING) {
             throw new IllegalStateException(
                     "Cannot complete. Current transaction status is " + this.transactionStatus);
         }
         this.transactionStatus = TransactionStatus.COMPLETED;
-        this.completedAt = new SystemDateTimeProvider().now();
+        this.completedAt = completedAt;
     }
-    public void returnTran(String returnReason) {
-        if (this.transactionStatus == TransactionStatus.REJECTED ||
-                this.transactionStatus == TransactionStatus.RETURNED) {
+    public void markReturned(LocalDateTime completedAt, String returnReason) {
+        if (this.transactionStatus != TransactionStatus.PENDING) {
             throw new IllegalStateException("Transaction is already " + this.transactionStatus);
         }
         this.transactionStatus = TransactionStatus.RETURNED;
         this.returnReason = returnReason;
-        this.completedAt = new SystemDateTimeProvider().now();
+        this.completedAt = completedAt;
     }
-    public void rejectTran(String rejectReason) {
-        if (this.transactionStatus == TransactionStatus.REJECTED ||
-                this.transactionStatus == TransactionStatus.RETURNED) {
+    public void reject(LocalDateTime completedAt, String rejectReason) {
+        if (this.transactionStatus != TransactionStatus.PENDING) {
             throw new IllegalStateException("Transaction is already " + this.transactionStatus);
         }
         this.transactionStatus = TransactionStatus.REJECTED;
         this.rejectReason = rejectReason;
-        this.completedAt = new SystemDateTimeProvider().now();
+        this.completedAt = completedAt;
     }
 
     // query
@@ -118,6 +125,7 @@ public class Transaction {
     }
 
     public TransactionId getTransactionId() { return transactionId; }
+    public Currency getCurrency() { return currency; }
     public Money getAmount() { return amount; }
     public AccountId getSourceAccount() { return sourceAccount; }
     public AccountId getTargetAccount() { return targetAccount; }
@@ -127,4 +135,5 @@ public class Transaction {
     public LocalDateTime getCompletedAt() { return completedAt; }
     public String getReturnReason() { return returnReason; }
     public String getRejectReason() { return rejectReason; }
+    public String getFailureReason() { return rejectReason != null ? rejectReason : returnReason; }
 }
