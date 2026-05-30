@@ -18,7 +18,7 @@ public final class Token {
 
     public static Token create(String value, LocalDateTime expiry, CustomerId customerId, LocalDateTime now) {
         if (value == null || value.isBlank()) {
-            throw new IllegalArgumentException("Token value cannot be empty or null");
+            throw new IllegalArgumentException("Token code cannot be empty or null");
         }
         if (expiry == null) {
             throw new IllegalArgumentException("Expire date is null");
