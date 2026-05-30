@@ -1,57 +1,82 @@
 package lv.v3nom.domain.model;
 
-import lv.v3nom.domain.value.CustomerId;
-import lv.v3nom.domain.value.EmailAddress;
-import lv.v3nom.domain.value.PhoneNumber;
-import lv.v3nom.infrastructure.util.IdGenerator;
-import lv.v3nom.infrastructure.util.impl.SystemDateTimeProvider;
+import lv.v3nom.domain.security.PasswordHasher;
+import lv.v3nom.domain.value.*;
 
 import java.time.LocalDateTime;
 
 public class Customer {
     private final CustomerId id;
+    private Role role;
+    private CustomerStatus customerStatus;
     private String name;
     private EmailAddress email;
     private PhoneNumber phoneNumber;
+    private Password password;
+    private PasswordHasher hasher;
     private final LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
     private Customer(CustomerId id,
+                     Role role,
+                     CustomerStatus customerStatus,
                      String name,
                      EmailAddress email,
                      PhoneNumber phoneNumber,
+                     Password password,
+                     PasswordHasher hasher,
                      LocalDateTime createdAt) {
+
         this.id = id;
+        this.role = role;
+        this.customerStatus = customerStatus;
         this.name = name;
         this.email = email;
         this.phoneNumber = phoneNumber;
+        this.password = password;
+        this.hasher = hasher;
         this.createdAt = createdAt;
     }
 
     public static Customer register(String name,
                                     String email,
-                                    String phone) {
+                                    String phone,
+                                    String rawPassword,
+                                    PasswordHasher hasher,
+                                    LocalDateTime createdAt) {
+
         return new Customer(
                 CustomerId.generate(),
+                Role.CUSTOMER,
+                CustomerStatus.ACTIVE,
                 name.trim(),
                 EmailAddress.of(email),
                 PhoneNumber.of(phone),
-                new SystemDateTimeProvider().now());
+                Password.fromRaw(rawPassword, hasher),
+                hasher,
+                createdAt);
     }
     public static Customer reconstitute(CustomerId id,
+                                       Role role,
+                                       CustomerStatus customerStatus,
                                        String name,
                                        EmailAddress email,
                                        PhoneNumber phoneNumber,
+                                       Password existingPassword,
+                                       PasswordHasher hasher,
                                        LocalDateTime createdAt,
                                        LocalDateTime updatedAt) {
+
         Customer customer = new Customer(
-                id, name, email, phoneNumber, createdAt);
+                id, role, customerStatus, name, email, phoneNumber, existingPassword, hasher, createdAt);
         customer.updatedAt = updatedAt;
         return customer;
     }
-    // TODO
-    // - void changeName
     public void changeName(String newName) {
+        if (this.customerStatus != CustomerStatus.ACTIVE) {
+            throw new IllegalStateException(
+                    "Name change available only for ACTIVE customer accounts");
+        }
         if (newName.isBlank() || newName == null) {
             throw new IllegalArgumentException(
                     "New customer name cannot be blank or null");
@@ -63,8 +88,11 @@ public class Customer {
         }
         this.name = newName;
     }
-    // - void changeEmail
     public void changeEmail(EmailAddress newEmail) {
+        if (this.customerStatus != CustomerStatus.ACTIVE) {
+            throw new IllegalStateException(
+                    "Email change available only for ACTIVE customer accounts");
+        }
         if (newEmail == null) {
             throw new IllegalArgumentException("New email cannot be null");
         }
@@ -73,8 +101,11 @@ public class Customer {
         }
         this.email = newEmail;
     }
-    // - void changePhoneNumber
     public void changePhoneNumber(PhoneNumber newPhoneNumber) {
+        if (this.customerStatus != CustomerStatus.ACTIVE) {
+            throw new IllegalStateException(
+                    "Phone number change available only for ACTIVE customer accounts");
+        }
         if (newPhoneNumber == null) {
             throw new IllegalArgumentException("New phone number cannot be null");
         }
@@ -83,17 +114,25 @@ public class Customer {
         }
         this.phoneNumber = newPhoneNumber;
     }
+    public void changePassword(String oldPwd, String newPwd, PasswordHasher hasher) {
+        if (this.password.matches(oldPwd, hasher)) {
+            throw new IllegalStateException("New password cannot be identical to old password.");
+        }
+        this.password = Password.fromRaw(newPwd, hasher);
+    }
 
-    // query
-    // - bool canOpenAccount
     public boolean canOpenAccount() {
-
+        return this.customerStatus == CustomerStatus.ACTIVE;
     }
 
     public CustomerId getId() { return id; }
+    public Role getRole() { return role; }
+    public CustomerStatus getCustomerStatus() { return customerStatus; }
     public String getName() { return name; }
     public EmailAddress getEmail() { return email; }
     public PhoneNumber getPhoneNumber() { return phoneNumber; }
+    public Password getPassword() { return password; }
+    public PasswordHasher getHasher() { return hasher; }
     public LocalDateTime getCreatedAt() { return createdAt; }
     public LocalDateTime getUpdatedAt() { return updatedAt; }
 }
