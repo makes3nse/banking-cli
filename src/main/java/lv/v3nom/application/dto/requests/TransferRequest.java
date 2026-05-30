@@ -7,6 +7,7 @@ public class TransferRequest {
     private String idempotencyKey;
     private String sourceAccountId;
     private String targetAccountId;
+    private String currency;
     private BigDecimal amount;
 
     public TransferRequest() {}
@@ -14,12 +15,14 @@ public class TransferRequest {
                            String idempotencyKey,
                            String sourceAccountId,
                            String targetAccountId,
+                           String currency,
                            BigDecimal amount) {
 
         this.currentSessionToken = currentSessionToken;
         this.idempotencyKey = idempotencyKey;
         this.sourceAccountId = sourceAccountId;
         this.targetAccountId = targetAccountId;
+        this.currency = currency;
         this.amount = amount;
     }
 
@@ -27,5 +30,6 @@ public class TransferRequest {
     public String getIdempotencyKey() { return idempotencyKey; }
     public String getSourceAccountId() { return sourceAccountId; }
     public String getTargetAccountId() { return targetAccountId; }
+    public String getCurrency() { return currency; }
     public BigDecimal getAmount() { return amount; }
 }
