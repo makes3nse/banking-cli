@@ -2,7 +2,7 @@ package lv.v3nom.application.dto.responses;
 
 import java.math.BigDecimal;
 
-public class ViewBalanceResponse {
+public class BalanceResponse {
     private String accountId;
     private String status;
     private String currency;
@@ -10,13 +10,13 @@ public class ViewBalanceResponse {
     private String operationStatus;
     private String errorMessage;
 
-    public ViewBalanceResponse() {}
-    public ViewBalanceResponse(String accountId,
-                               String status,
-                               String currency,
-                               BigDecimal balance,
-                               String operationStatus,
-                               String errorMessage) {
+    public BalanceResponse() {}
+    public BalanceResponse(String accountId,
+                           String status,
+                           String currency,
+                           BigDecimal balance,
+                           String operationStatus,
+                           String errorMessage) {
 
         this.accountId = accountId;
         this.status = status;
