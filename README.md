@@ -56,3 +56,14 @@ CLI → Service → Repository → Domain
 ## Purpose
 
 Controlled environment to validate DI container behavior—service graphs, circular dependencies, scopes, and lifecycle hooks—within a coherent, understandable domain that can be tested for its ability to handle various loads and for security vulnerabilities.
+
+## Roadmap
+
+See [GitHub Issues with "roadmap" label](https://github.com/makes3nse/banking-cli/issues?q=label%3Aroadmap)
+
+- [ ] PostgreSQL
+- [ ] TOMCAT
+- [ ] SERVLET
+- [ ] Multilang support
+- [ ] Docker containerization
+- [ ] Rate Limiting
