@@ -18,7 +18,6 @@ public class AccountMapper {
                 owner.getCustomerStatus(),
                 now);
     }
-
     public static AccountResponse toResponse(Account account, OperationStatus operationStatus) {
         return new AccountResponse(
                 account.getAccountId().getValue(),
@@ -29,5 +28,16 @@ public class AccountMapper {
                 operationStatus.getValue(),
                 operationStatus.getDescription()
         );
+    }
+    // helpers
+    public static AccountResponse failureResponse(String customerId, OperationStatus status) {
+        return new AccountResponse(
+                null,
+                customerId,
+                null,
+                null,
+                null,
+                status.getValue(),
+                status.getDescription());
     }
 }
