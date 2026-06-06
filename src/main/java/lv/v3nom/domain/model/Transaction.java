@@ -38,13 +38,12 @@ public class Transaction {
 
     // newborn transaction states
     public static Transaction createDepositRecord(TransactionId transactionId,
-                                                  Currency currency,
                                                   Money amount,
                                                   AccountId targetAccount,
                                                   LocalDateTime createdAt) {
         return new Transaction(
                 transactionId,
-                currency,
+                amount.getCurrency(),
                 amount,
                 targetAccount,
                 targetAccount,
@@ -53,13 +52,12 @@ public class Transaction {
                 createdAt);
     }
     public static Transaction createWithdrawalRecord(TransactionId transactionId,
-                                                     Currency currency,
                                                      Money amount,
                                                      AccountId sourceAccount,
                                                      LocalDateTime createdAt) {
         return new Transaction(
                 transactionId,
-                currency,
+                amount.getCurrency(),
                 amount,
                 sourceAccount,
                 sourceAccount,
@@ -68,14 +66,13 @@ public class Transaction {
                 createdAt);
     }
     public static Transaction createTransferRecord(TransactionId transactionId,
-                                                   Currency currency,
                                                    Money amount,
                                                    AccountId sourceAccount,
                                                    AccountId targetAccount,
                                                    LocalDateTime createdAt) {
         return new Transaction(
                 transactionId,
-                currency,
+                amount.getCurrency(),
                 amount,
                 sourceAccount,
                 targetAccount,
