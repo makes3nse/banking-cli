@@ -68,23 +68,23 @@ public class Account {
     }
 
     // Business logic
-    public void deposit(Currency currency, Money amount, LocalDateTime updatedAt) {
+    public void deposit(Money amount, LocalDateTime updatedAt) {
         if (amount.isNegativeOrZero()) {
             throw new IllegalArgumentException("Deposit amount must be positive");
         }
         if (accountStatus != AccountStatus.ACTIVE) {
             throw new IllegalStateException("Deposits are disabled for " + accountStatus.getValue() + " account");
         }
-        if (!this.currency.equals(currency)) {
+        if (!this.currency.equals(amount.getCurrency())) {
             throw new IllegalStateException(
-                    String.format("Cannot deposit %s currency to %s account", currency, this.currency)
+                    String.format("Cannot deposit %s currency to %s account", amount.getCurrency(), this.currency)
             );
         }
 
         this.balance = this.balance.add(amount);
         this.updatedAt = updatedAt;
     }
-    public void withdraw(Currency currency, Money amount, LocalDateTime updatedAt) {
+    public void withdraw(Money amount, LocalDateTime updatedAt) {
         if (amount.isNegativeOrZero()) {
             throw new IllegalArgumentException("Withdraw amount must be positive");
         }
@@ -94,16 +94,16 @@ public class Account {
         if (this.balance.isLessThan(amount)) {
             throw new IllegalArgumentException("Insufficient funds. Balance: " + this.balance);
         }
-        if (!this.currency.equals(currency)) {
+        if (!this.currency.equals(amount.getCurrency())) {
             throw new IllegalStateException(
-                    String.format("Cannot withdraw %s currency from %s account", currency, this.currency)
+                    String.format("Cannot withdraw %s currency from %s account", amount.getCurrency(), this.currency)
             );
         }
 
         this.balance = this.balance.subtract(amount);
         this.updatedAt = updatedAt;
     }
-    public void transferToAccount(Account target, Currency currency, Money amount, LocalDateTime updatedAt) {
+    public void transferToAccount(Account target, Money amount, LocalDateTime updatedAt) {
         if (amount.isNegativeOrZero()) {
             throw new IllegalArgumentException("Transfer amount must be positive");
         }
@@ -119,9 +119,9 @@ public class Account {
         if (this.balance.isLessThan(amount)) {
             throw new IllegalArgumentException("Cannot transfer, insufficient funds");
         }
-        if (!currency.equals(target.getCurrency())) {
+        if (!amount.getCurrency().equals(target.getCurrency())) {
             throw new IllegalStateException(
-                    String.format("Cannot transfer %s currency to %s account", currency, target.getCurrency())
+                    String.format("Cannot transfer %s currency to %s account", amount.getCurrency(), target.getCurrency())
             );
         }
 
