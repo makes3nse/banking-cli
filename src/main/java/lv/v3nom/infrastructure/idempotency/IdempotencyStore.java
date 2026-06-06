@@ -19,7 +19,7 @@ public class IdempotencyStore {
         long expiryTime = System.currentTimeMillis() + ttlMillis;
         idempotencyStore.put(combinedKey, IdempotencyEntry.of(response, expiryTime));
     }
-    public Object retrive(CustomerId customerId, IdempotencyKey idempotencyKey) {
+    public Object retrieve(CustomerId customerId, IdempotencyKey idempotencyKey) {
         String combinedKey = customerId.toString() + ":" + idempotencyKey.toString();
         IdempotencyEntry entry = idempotencyStore.get(combinedKey);
 
