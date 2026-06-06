@@ -5,35 +5,41 @@ import lv.v3nom.application.dto.requests.OpenAccountRequest;
 import lv.v3nom.application.dto.responses.AccountResponse;
 import lv.v3nom.application.dto.responses.TransactionResponse;
 import lv.v3nom.application.mapper.AccountMapper;
+import lv.v3nom.application.mapper.TransactionMapper;
 import lv.v3nom.application.service.AccountService;
 import lv.v3nom.domain.model.Account;
 import lv.v3nom.domain.model.Customer;
-import lv.v3nom.domain.value.CustomerId;
-import lv.v3nom.domain.value.IdempotencyKey;
-import lv.v3nom.domain.value.OperationStatus;
-import lv.v3nom.infrastructure.idempotency.IdempotencyEntry;
+import lv.v3nom.domain.model.Transaction;
+import lv.v3nom.domain.value.*;
 import lv.v3nom.infrastructure.idempotency.IdempotencyStore;
+import lv.v3nom.infrastructure.repository.INMEM.AccountRepository;
+import lv.v3nom.infrastructure.repository.INMEM.CustomerRepository;
+import lv.v3nom.infrastructure.repository.INMEM.TransactionRepository;
 import lv.v3nom.infrastructure.repository.INMEM.impl.AccountRepositoryImpl;
 import lv.v3nom.infrastructure.repository.INMEM.impl.CustomerRepositoryImpl;
+import lv.v3nom.infrastructure.repository.INMEM.impl.TransactionRepositoryImpl;
 import lv.v3nom.infrastructure.security.PermissionChecker;
 import lv.v3nom.infrastructure.security.TokenStore;
-import lv.v3nom.infrastructure.time.TimeRules;
 import lv.v3nom.infrastructure.time.impl.SystemDateTimeProvider;
 
 public class AccountServiceImpl implements AccountService {
     private final TokenStore tokenStore;
     private final IdempotencyStore idempotencyStore;
-    private final CustomerRepositoryImpl customerRepository;
-    private final AccountRepositoryImpl accountRepository;
+    private final CustomerRepository customerRepository;
+    private final AccountRepository accountRepository;
+    private final TransactionRepository transactionRepository;
 
     public AccountServiceImpl(TokenStore tokenStore,
                               IdempotencyStore idempotencyStore,
-                              CustomerRepositoryImpl customerRepository,
-                              AccountRepositoryImpl accountRepository) {
+                              CustomerRepository customerRepository,
+                              AccountRepository accountRepository,
+                              TransactionRepository transactionRepository) {
+
         this.tokenStore = tokenStore;
         this.idempotencyStore = idempotencyStore;
         this.customerRepository = customerRepository;
         this.accountRepository = accountRepository;
+        this.transactionRepository = transactionRepository;
     }
 
     //    Validate session token    --> get authenticated CustomerId
@@ -50,12 +56,12 @@ public class AccountServiceImpl implements AccountService {
 
         CustomerId authenticatedId = tokenStore.getCustomerId(request.getCurrentSessionToken());
         if (!tokenStore.isValid(request.getCurrentSessionToken(), time.now())
-                && authenticatedId != null) {
+                || authenticatedId == null) {
             return AccountMapper.failureResponse(authenticatedId.toString(), OperationStatus.FAILURE);
         }
 
         IdempotencyKey idempotencyKey = IdempotencyKey.of(request.getIdempotencyKey());
-        Object cachedResponse = idempotencyStore.retrive(authenticatedId, idempotencyKey);
+        Object cachedResponse = idempotencyStore.retrieve(authenticatedId, idempotencyKey);
         if (cachedResponse != null) {
             return (AccountResponse) cachedResponse;
         }
@@ -96,7 +102,64 @@ public class AccountServiceImpl implements AccountService {
     //    Return response
     @Override
     public TransactionResponse deposit(DepositRequest request) {
-        return null;
+        SystemDateTimeProvider time = new SystemDateTimeProvider();
+        TransactionType transactionType = TransactionType.DEPOSIT;
+        Currency currency = Currency.of(request.getCurrency());
+        Money amount = Money.of(request.getAmount(), currency);
+        TransactionId transactionId = TransactionId.generate();
+        IdempotencyKey idempotencyKey = IdempotencyKey.of(request.getIdempotencyKey());
+
+        CustomerId authenticated = tokenStore.getCustomerId(request.getCurrentSessionToken());
+        boolean isValidToken = tokenStore.isValid(request.getCurrentSessionToken(), time.now());
+        if (!isValidToken || authenticated == null) {
+            String failureReason = String.format(
+                    "Token: %s; Validity: %s; User: %s;",
+                    request.getCurrentSessionToken(),
+                    isValidToken,
+                    authenticated
+            );
+
+            return TransactionMapper.failureResponse(
+                    transactionType,
+                    failureReason,
+                    OperationStatus.FAILURE);
+        }
+        Object cachedResponse = idempotencyStore.retrieve(authenticated, idempotencyKey);
+        if (cachedResponse != null) {
+            return (TransactionResponse) cachedResponse;
+        }
+
+        Account account = accountRepository.findById(AccountId.of(request.getAccountId()));
+        boolean isExistingAccount = account != null;
+        boolean isOwnedByAuthenticatedCustomer = account.getOwnerId().equals(authenticated);
+        if (!isExistingAccount || !isOwnedByAuthenticatedCustomer) {
+            String failureReason = String.format(
+                    "Account: %s; Exists: %s; User: %s;",
+                    request.getCurrentSessionToken(),
+                    isExistingAccount,
+                    authenticated
+            );
+            return TransactionMapper.failureResponse(
+                    transactionType,
+                    failureReason,
+                    OperationStatus.FAILURE
+            );
+        }
+
+        Transaction depositTransaction = Transaction.createDepositRecord(
+                transactionId,
+                amount,
+                account.getAccountId(),
+                time.now()
+        );
+        account.deposit(amount, time.now());
+        depositTransaction.complete(time.now());
+        accountRepository.save(account);
+        transactionRepository.save(depositTransaction);
+        TransactionResponse response = TransactionMapper.toResponse(depositTransaction, OperationStatus.SUCCESS);
+        idempotencyStore.store(authenticated, idempotencyKey, response);
+
+        return response;
     }
 
     //    withdraw TODO
