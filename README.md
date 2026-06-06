@@ -42,8 +42,8 @@ CLI → Service → Repository → Domain
 - **Storage**: In-memory (`Map<ID, Entity>`) + JSON locally [Future upgrade: PostgreSQL]
 - **IDs**: Digit and ASCII identifiers / UUID
 - **Tokens**: Session Token, Refresh token, JWT, Idempotency Key
-- **Money**: `BigDecimal` or cents (single currency) [Future upgrade: multiple currencies]
-- **Validation**: No negative transfers, sufficient balance checks, valid token enforcement, operation idempotency validation
+- **Money**: `BigDecimal` >> Multiple currencies
+- **Validation**: No negative transfers, currency safety, sufficient balance checks, valid token enforcement, operation idempotency validation, privileges
 
 ## Project Structure
 
@@ -61,9 +61,12 @@ Controlled environment to validate DI container behavior—service graphs, circu
 
 See [GitHub Issues with "roadmap" label](https://github.com/makes3nse/banking-cli/issues?q=label%3Aroadmap)
 
+- [ ] In-Memory storage
+- [ ] JSON local storage
 - [ ] PostgreSQL
 - [ ] TOMCAT
 - [ ] SERVLET
+- [ ] Complete Web Support
 - [ ] Multilang support
 - [ ] Docker containerization
 - [ ] Rate Limiting
