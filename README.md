@@ -61,8 +61,8 @@ Controlled environment to validate DI container behavior—service graphs, circu
 
 See [GitHub Issues with "roadmap" label](https://github.com/makes3nse/banking-cli/issues?q=label%3Aroadmap)
 
-- [ ] In-Memory storage
-- [ ] JSON local storage
+- [x] In-Memory storage
+- [x] JSON local storage
 - [ ] PostgreSQL
 - [ ] TOMCAT
 - [ ] SERVLET
