@@ -54,7 +54,6 @@ public class AccountServiceImpl implements AccountService {
 
         Currency currency = Currency.of(request.getCurrency());
         IdempotencyKey idempotencyKey = IdempotencyKey.of(request.getIdempotencyKey());
-        CustomerId targetCustomerId = CustomerId.of(request.getCustomerId());
         CustomerId authenticatedId = tokenStore.getCustomerId(request.getCurrentSessionToken());
 
         boolean isValidToken = tokenStore.isValid(request.getCurrentSessionToken(), time.now());
@@ -69,22 +68,9 @@ public class AccountServiceImpl implements AccountService {
 
         Customer customer = customerRepository.findById(authenticatedId);
 
-        if (!PermissionChecker.hasHighElevatedRights(customer)
-                && !authenticatedId.equals(targetCustomerId)) {
-            OperationStatus badOperationStatusOfPermissions = OperationStatus.of(
-                    "FAILURE",
-                    false,
-                    String.format(
-                            "No enough permissions to open account for other users: %s.",
-                            targetCustomerId.getValue())
-            );
-            return AccountMapper.failureResponse(targetCustomerId.toString(), badOperationStatusOfPermissions);
-        }
-
-        OperationStatus goodOperationStatus = OperationStatus.SUCCESS;
         Account account = Account.open(authenticatedId, currency, customer.getCustomerStatus(), time.now());
         accountRepository.save(account);
-        AccountResponse response = AccountMapper.toResponse(account, goodOperationStatus);
+        AccountResponse response = AccountMapper.toResponse(account, OperationStatus.SUCCESS);
         idempotencyStore.store(authenticatedId, idempotencyKey, response);
 
         return response;
@@ -209,7 +195,7 @@ public class AccountServiceImpl implements AccountService {
             );
 
             return TransactionMapper.failureResponse(
-                    transactionType, failureResponse, OperationStatus.FAILURE
+                    transactionType, failureReason, OperationStatus.FAILURE
             );
         }
 
