@@ -3,6 +3,7 @@ package lv.v3nom.application.mapper;
 import lv.v3nom.application.dto.requests.DepositRequest;
 import lv.v3nom.application.dto.requests.TransferRequest;
 import lv.v3nom.application.dto.requests.WithdrawRequest;
+import lv.v3nom.application.dto.responses.AccountResponse;
 import lv.v3nom.application.dto.responses.TransactionHistoryResponse;
 import lv.v3nom.application.dto.responses.TransactionResponse;
 import lv.v3nom.application.dto.responses.TransactionSummaryResponse;
@@ -18,7 +19,6 @@ public class TransactionMapper {
 
         return Transaction.createDepositRecord(
                 transactionId,
-                Currency.of(request.getCurrency()),
                 Money.of(request.getAmount(), Currency.of(request.getCurrency())),
                 AccountId.of(request.getAccountId()),
                 now
@@ -30,7 +30,6 @@ public class TransactionMapper {
 
         return Transaction.createTransferRecord(
                 transactionId,
-                Currency.of(request.getCurrency()),
                 Money.of(request.getAmount(), Currency.of(request.getCurrency())),
                 AccountId.of(request.getSourceAccountId()),
                 AccountId.of(request.getTargetAccountId()),
@@ -43,7 +42,6 @@ public class TransactionMapper {
 
         return Transaction.createWithdrawalRecord(
                 transactionId,
-                Currency.of(request.getCurrency()),
                 Money.of(request.getAmount(), Currency.of(request.getCurrency())),
                 AccountId.of(request.getAccountId()),
                 now
@@ -80,6 +78,26 @@ public class TransactionMapper {
                 //  and call this static 'toSummaryResponse()' method from this mapper
                 //  then in same service layer we're going to instantiate
                 //  new TransactionHistory response DTO and pass everything needed.
+        );
+    }
+    // helpers
+    public static TransactionResponse failureResponse(TransactionType transactionType,
+                                                      String failureReason,
+                                                      OperationStatus operationStatus) {
+
+        return new TransactionResponse(
+                null,
+                transactionType.getTransactionCode(),
+                null,
+                null,
+                null,
+                null,
+                null,
+                failureReason,
+                null,
+                null,
+                operationStatus.getValue(),
+                operationStatus.getDescription()
         );
     }
 }
