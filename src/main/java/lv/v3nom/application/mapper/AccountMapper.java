@@ -11,13 +11,13 @@ import lv.v3nom.domain.value.OperationStatus;
 import java.time.LocalDateTime;
 
 public class AccountMapper {
-    public static Account toDomain(OpenAccountRequest request, Customer owner, LocalDateTime now) {
-        return Account.open(
-                CustomerId.of(request.getCustomerId()),
-                Currency.of(request.getCurrency()),
-                owner.getCustomerStatus(),
-                now);
-    }
+//    public static Account toDomain(OpenAccountRequest request, Customer owner, LocalDateTime now) {
+//        return Account.open(
+//                CustomerId.of(request.getCustomerId()),
+//                Currency.of(request.getCurrency()),
+//                owner.getCustomerStatus(),
+//                now);
+//    }
     public static AccountResponse toResponse(Account account, OperationStatus operationStatus) {
         return new AccountResponse(
                 account.getAccountId().getValue(),
