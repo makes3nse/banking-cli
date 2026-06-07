@@ -1,6 +1,7 @@
 package lv.v3nom.application.mapper;
 
 import lv.v3nom.application.dto.requests.RegisterCustomerRequest;
+import lv.v3nom.application.dto.responses.AccountResponse;
 import lv.v3nom.application.dto.responses.CustomerResponse;
 import lv.v3nom.domain.model.Customer;
 import lv.v3nom.domain.security.PasswordHasher;
@@ -26,6 +27,18 @@ public class CustomerMapper {
                 customer.getEmail().getValue(),
                 customer.getPhoneNumber().getValue(),
                 customer.getCustomerStatus().getValue(),
+                operationStatus.getValue(),
+                operationStatus.getDescription()
+        );
+    }
+    // helpers
+    public static CustomerResponse failureResponse(String customerId, OperationStatus operationStatus) {
+        return new CustomerResponse(
+                customerId,
+                null,
+                null,
+                null,
+                null,
                 operationStatus.getValue(),
                 operationStatus.getDescription()
         );
