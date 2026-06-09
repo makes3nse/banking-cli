@@ -2,6 +2,7 @@ package lv.v3nom.application.service.impl;
 
 import lv.v3nom.application.dto.requests.DepositRequest;
 import lv.v3nom.application.dto.requests.OpenAccountRequest;
+import lv.v3nom.application.dto.requests.TransferRequest;
 import lv.v3nom.application.dto.requests.WithdrawRequest;
 import lv.v3nom.application.dto.responses.AccountResponse;
 import lv.v3nom.application.dto.responses.TransactionResponse;
@@ -156,6 +157,7 @@ public class AccountServiceImpl implements AccountService {
 
     //    withdraw TODO
     //    Same as deposit, but check sufficient balance
+    @Override
     public TransactionResponse withdraw(WithdrawRequest request) {
         SystemDateTimeProvider time = new SystemDateTimeProvider();
 
@@ -226,6 +228,78 @@ public class AccountServiceImpl implements AccountService {
     //    Save both accounts + transaction
     //    Cache response
     //    Return response
+    @Override
+    public TransactionResponse transfer(TransferRequest request) {
+        SystemDateTimeProvider time = new SystemDateTimeProvider();
+        TransactionType transactionType = TransactionType.TRANSFER;
+        IdempotencyKey idempotencyKey = IdempotencyKey.of(request.getIdempotencyKey());
+        AccountId sourceAccountId = AccountId.of(request.getSourceAccountId());
+        AccountId targetAccountId = AccountId.of(request.getTargetAccountId());
+        Currency currency = Currency.of(request.getCurrency());
+        Money amount = Money.of(request.getAmount(), currency);
+        CustomerId authenticatedId = tokenStore.getCustomerId(request.getCurrentSessionToken());
+
+        boolean isValidToken = tokenStore.isValid(request.getCurrentSessionToken(), time.now());
+        if (authenticatedId == null || !isValidToken) {
+            String failureReason = String.format(
+                    "Token: %s; Validity: %s; User: %s;",
+                    request.getCurrentSessionToken(),
+                    isValidToken,
+                    authenticatedId
+            );
+
+            return TransactionMapper.failureResponse(transactionType, failureReason, OperationStatus.FAILURE);
+        }
+
+        Object cachedResponse = idempotencyStore.retrieve(authenticatedId, idempotencyKey);
+        if (cachedResponse != null) {
+            return (TransactionResponse) cachedResponse;
+        }
+
+        Account sourceAccount = accountRepository.findById(sourceAccountId);
+        boolean isExistingSourceAccount = sourceAccount != null;
+        boolean isOwnedByAuthenticatedCustomer = sourceAccount.getOwnerId().equals(authenticatedId);
+        if (!isExistingSourceAccount || !isOwnedByAuthenticatedCustomer) {
+            String failureReason = String.format(
+                    "Account: %s; Exists: %s; User: %s;",
+                    request.getSourceAccountId(),
+                    isExistingSourceAccount,
+                    authenticatedId
+            );
+
+            return TransactionMapper.failureResponse(transactionType, failureReason, OperationStatus.FAILURE);
+        }
+
+        Account targetAccount = accountRepository.findById(targetAccountId);
+        boolean isExistingTargetAccount = targetAccount != null;
+        if (!isExistingTargetAccount) {
+            String failureReason = String.format(
+                    "Account: %s; Exists: %s; User: %s;",
+                    request.getSourceAccountId(),
+                    isExistingTargetAccount,
+                    authenticatedId
+            );
+
+            return TransactionMapper.failureResponse(transactionType, failureReason, OperationStatus.FAILURE);
+        }
+
+        Transaction transferTransaction = Transaction.createTransferRecord(
+                TransactionId.generate(),
+                amount,
+                sourceAccountId,
+                targetAccountId,
+                time.now()
+        );
+        sourceAccount.transferToAccount(targetAccount, amount, time.now());
+        transferTransaction.complete(time.now());
+        accountRepository.save(sourceAccount);
+        accountRepository.save(targetAccount);
+        transactionRepository.save(transferTransaction);
+        TransactionResponse response = TransactionMapper.toResponse(transferTransaction, OperationStatus.SUCCESS);
+        idempotencyStore.store(authenticatedId, idempotencyKey, response);
+
+        return response;
+    }
 
     //    getBalance TODO
     //    Validate token            --> get customer ID
