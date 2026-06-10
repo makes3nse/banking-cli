@@ -2,6 +2,7 @@ package lv.v3nom.application.mapper;
 
 import lv.v3nom.application.dto.requests.OpenAccountRequest;
 import lv.v3nom.application.dto.responses.AccountResponse;
+import lv.v3nom.application.dto.responses.BalanceResponse;
 import lv.v3nom.domain.model.Account;
 import lv.v3nom.domain.model.Customer;
 import lv.v3nom.domain.value.Currency;
@@ -29,6 +30,16 @@ public class AccountMapper {
                 operationStatus.getDescription()
         );
     }
+    public static BalanceResponse toBalanceResponse(Account account, OperationStatus operationStatus) {
+        return new BalanceResponse(
+                account.getAccountId().getValue(),
+                account.getAccountStatus().getValue(),
+                account.getCurrency().value(),
+                account.getBalance().getValue(),
+                operationStatus.getValue(),
+                operationStatus.getDescription()
+        );
+    }
     // helpers
     public static AccountResponse failureResponse(String customerId, OperationStatus status) {
         return new AccountResponse(
@@ -39,5 +50,15 @@ public class AccountMapper {
                 null,
                 status.getValue(),
                 status.getDescription());
+    }
+    public static BalanceResponse failureResponseBalance(String failureReason, OperationStatus operationStatus) {
+        return new BalanceResponse(
+                null,
+                null,
+                null,
+                null,
+                operationStatus.getValue(),
+                failureReason
+        );
     }
 }
