@@ -1,10 +1,8 @@
 package lv.v3nom.application.service.impl;
 
-import lv.v3nom.application.dto.requests.DepositRequest;
-import lv.v3nom.application.dto.requests.OpenAccountRequest;
-import lv.v3nom.application.dto.requests.TransferRequest;
-import lv.v3nom.application.dto.requests.WithdrawRequest;
+import lv.v3nom.application.dto.requests.*;
 import lv.v3nom.application.dto.responses.AccountResponse;
+import lv.v3nom.application.dto.responses.BalanceResponse;
 import lv.v3nom.application.dto.responses.TransactionResponse;
 import lv.v3nom.application.mapper.AccountMapper;
 import lv.v3nom.application.mapper.TransactionMapper;
@@ -20,6 +18,8 @@ import lv.v3nom.infrastructure.repository.INMEM.TransactionRepository;
 import lv.v3nom.infrastructure.security.PermissionChecker;
 import lv.v3nom.infrastructure.security.TokenStore;
 import lv.v3nom.infrastructure.time.impl.SystemDateTimeProvider;
+
+import java.util.List;
 
 public class AccountServiceImpl implements AccountService {
     private final TokenStore tokenStore;
@@ -125,11 +125,13 @@ public class AccountServiceImpl implements AccountService {
         boolean isOwnedByAuthenticatedCustomer = account.getOwnerId().equals(authenticatedId);
         if (!isExistingAccount || !isOwnedByAuthenticatedCustomer) {
             String failureReason = String.format(
-                    "Account: %s; Exists: %s; User: %s;",
+                    "Account: %s; Owned: %; Exists: %s; User: %s;",
                     request.getAccountId(),
+                    isOwnedByAuthenticatedCustomer,
                     isExistingAccount,
                     authenticatedId
             );
+
             return TransactionMapper.failureResponse(
                     transactionType,
                     failureReason,
@@ -190,8 +192,9 @@ public class AccountServiceImpl implements AccountService {
         boolean isOwnedByAuthenticatedCustomer = account.getOwnerId().equals(authenticatedId);
         if (!isExistingAccount || !isOwnedByAuthenticatedCustomer) {
             String failureReason = String.format(
-                    "Account: %s; Exists: %s; User: %s;",
+                    "Account: %s; Owned: %; Exists: %s; User: %s;",
                     request.getAccountId(),
+                    isOwnedByAuthenticatedCustomer,
                     isExistingAccount,
                     authenticatedId
             );
@@ -261,8 +264,9 @@ public class AccountServiceImpl implements AccountService {
         boolean isOwnedByAuthenticatedCustomer = sourceAccount.getOwnerId().equals(authenticatedId);
         if (!isExistingSourceAccount || !isOwnedByAuthenticatedCustomer) {
             String failureReason = String.format(
-                    "Account: %s; Exists: %s; User: %s;",
+                    "Account: %s; Owned: %; Exists: %s; User: %s;",
                     request.getSourceAccountId(),
+                    isOwnedByAuthenticatedCustomer,
                     isExistingSourceAccount,
                     authenticatedId
             );
@@ -306,6 +310,44 @@ public class AccountServiceImpl implements AccountService {
     //    Load account
     //    Authorize privs
     //    Return balance from account entity
+    @Override
+    public BalanceResponse getBalance(ViewBalanceRequest request) {
+        SystemDateTimeProvider time = new SystemDateTimeProvider();
+        AccountId accountId = AccountId.of(request.getAccountId());
+        CustomerId authenticatedId = tokenStore.getCustomerId(request.getCurrentSessionToken());
+
+        boolean isValidToken = tokenStore.isValid(request.getCurrentSessionToken(), time.now());
+        if (authenticatedId == null || !isValidToken) {
+            String failureReason = String.format(
+                    "Token: %s; Validity: %s; User: %s;",
+                    request.getCurrentSessionToken(),
+                    isValidToken,
+                    authenticatedId
+            );
+
+            return AccountMapper.failureResponseBalance(failureReason, OperationStatus.FAILURE);
+        }
+
+        Account account = accountRepository.findById(accountId);
+        boolean isOwnedByAuthenticatedCustomer = account.getOwnerId().equals(authenticatedId);
+        boolean isExistingAccount = account != null;
+        if (!isExistingAccount || !isOwnedByAuthenticatedCustomer) {
+            String failureReason = String.format(
+                    "Account: %s; Owned: %; Exists: %s; User: %s;",
+                    request.getAccountId(),
+                    isOwnedByAuthenticatedCustomer,
+                    isExistingAccount,
+                    authenticatedId
+            );
+
+            return AccountMapper.failureResponseBalance(failureReason, OperationStatus.FAILURE);
+        }
+
+        BalanceResponse response = AccountMapper.toBalanceResponse(account, OperationStatus.SUCCESS);
+
+        return response;
+    }
+
 
     //    getAccountsByCustomer TODO
     //    Validate token            --> get customer ID
@@ -313,4 +355,8 @@ public class AccountServiceImpl implements AccountService {
     //    Authorize privs
     //    Fetch accounts from repository
     //    Return list of responses
+    @Override
+    public List<AccountResponse> getAccountsByCustomer(GetAccountsRequest request) {
+        return List.of();
+    }
 }
