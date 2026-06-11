@@ -14,4 +14,8 @@ public interface AccountService {
     public TransactionResponse transfer(TransferRequest request);
     public BalanceResponse getBalance(ViewBalanceRequest request);
     public List<AccountResponse> getAccountsByCustomer(GetAccountsRequest request);
+    public AccountResponse closeAccount(CloseAccountRequest request);
+    public AccountResponse freezeAccount(FreezeAccountRequest request);
+    public AccountResponse unfreezeAccount(UnfreezeAccountRequest request);
+    public AccountResponse getAccountDetails(GetAccountDetailsRequest request);
 }
