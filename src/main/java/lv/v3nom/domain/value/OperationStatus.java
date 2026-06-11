@@ -3,10 +3,12 @@ package lv.v3nom.domain.value;
 public final class OperationStatus {
     private final String value;
     private final boolean isOperational;
+    private final boolean isStable;
     private final String description;
 
     private OperationStatus(String value,
                             boolean isOperational,
+                            boolean isStable,
                             String description) {
 
         if (value == null || value.isBlank()) {
@@ -15,22 +17,26 @@ public final class OperationStatus {
 
         this.value = value;
         this.isOperational = isOperational;
+        this.isStable = isStable;
         this.description = description;
     }
 
     public static OperationStatus of(String value,
                                      boolean isOperational,
+                                     boolean isStable,
                                      String description) {
 
-        return new OperationStatus(value, isOperational, description);
+        return new OperationStatus(value, isOperational, isStable, description);
     }
 
     public static final OperationStatus PROCESSING =
-            new OperationStatus("PROCESSING", true, "");
+            new OperationStatus("PROCESSING", true, true, "");
     public static final OperationStatus SUCCESS =
-            new OperationStatus("SUCCESS", true, "");
+            new OperationStatus("SUCCESS", true, true, "");
     public static final OperationStatus FAILURE =
-            new OperationStatus("FAILURE", false, "");
+            new OperationStatus("FAILURE", false, true, "");
+    public static final OperationStatus UNKNOWN =
+            new OperationStatus("UNKNOWN", true, false, "");
 
     @Override
     public boolean equals(Object o) {
