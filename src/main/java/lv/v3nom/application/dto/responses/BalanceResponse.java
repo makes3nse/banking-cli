@@ -4,7 +4,6 @@ import java.math.BigDecimal;
 
 public class BalanceResponse {
     private String accountId;
-    private String status;
     private String currency;
     private BigDecimal balance;
     private String operationStatus;
@@ -12,14 +11,12 @@ public class BalanceResponse {
 
     public BalanceResponse() {}
     public BalanceResponse(String accountId,
-                           String status,
                            String currency,
                            BigDecimal balance,
                            String operationStatus,
                            String errorMessage) {
 
         this.accountId = accountId;
-        this.status = status;
         this.currency = currency;
         this.balance = balance;
         this.operationStatus = operationStatus;
@@ -27,7 +24,6 @@ public class BalanceResponse {
     }
 
     public String getAccountId() { return accountId; }
-    public String getStatus() { return status; }
     public String getCurrency() { return currency; }
     public BigDecimal getBalance() { return balance; }
     public String getOperationStatus() { return operationStatus; }
