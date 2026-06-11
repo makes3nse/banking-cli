@@ -19,6 +19,7 @@ import lv.v3nom.infrastructure.security.PermissionChecker;
 import lv.v3nom.infrastructure.security.TokenStore;
 import lv.v3nom.infrastructure.time.impl.SystemDateTimeProvider;
 
+import java.util.ArrayList;
 import java.util.List;
 
 public class AccountServiceImpl implements AccountService {
@@ -348,7 +349,6 @@ public class AccountServiceImpl implements AccountService {
         return response;
     }
 
-
     //    getAccountsByCustomer TODO
     //    Validate token            --> get customer ID
     //    Determine target customer (self or admin)
@@ -357,6 +357,45 @@ public class AccountServiceImpl implements AccountService {
     //    Return list of responses
     @Override
     public List<AccountResponse> getAccountsByCustomer(GetAccountsRequest request) {
-        return List.of();
+        SystemDateTimeProvider time = new SystemDateTimeProvider();
+        CustomerId authenticatedId = tokenStore.getCustomerId(request.getCurrentSessionToken());
+
+        boolean isValidToken = tokenStore.isValid(request.getCurrentSessionToken(), time.now());
+        if (authenticatedId == null || !isValidToken) {
+            String failureReason = String.format(
+                    "Token: %s; Validity: %s; User: %s;",
+                    request.getCurrentSessionToken(),
+                    isValidToken,
+                    authenticatedId
+            );
+
+            return List.of(AccountMapper.failureResponse(failureReason, OperationStatus.FAILURE));
+        }
+
+        List<Account> accounts = accountRepository.findByCustomerId(authenticatedId);
+        List<AccountResponse> response = new ArrayList<>();
+        for (Account account : accounts) {
+            if (account.getOwnerId().equals(authenticatedId)) {
+                response.add(AccountMapper.toResponse(account, OperationStatus.UNKNOWN));
+            }
+        }
+
+        return response;
+    }
+    @Override
+    public AccountResponse closeAccount(CloseAccountRequest request) {
+        return null;
+    }
+    @Override
+    public AccountResponse freezeAccount(FreezeAccountRequest request) {
+        return null;
+    }
+    @Override
+    public AccountResponse unfreezeAccount(UnfreezeAccountRequest request) {
+        return null;
+    }
+    @Override
+    public AccountResponse getAccountDetails(GetAccountDetailsRequest request) {
+        return null;
     }
 }
