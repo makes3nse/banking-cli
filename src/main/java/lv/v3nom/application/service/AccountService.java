@@ -2,6 +2,7 @@ package lv.v3nom.application.service;
 
 import lv.v3nom.application.dto.requests.*;
 import lv.v3nom.application.dto.responses.AccountResponse;
+import lv.v3nom.application.dto.responses.AccountStatusResponse;
 import lv.v3nom.application.dto.responses.BalanceResponse;
 import lv.v3nom.application.dto.responses.TransactionResponse;
 
@@ -14,8 +15,8 @@ public interface AccountService {
     public TransactionResponse transfer(TransferRequest request);
     public BalanceResponse getBalance(ViewBalanceRequest request);
     public List<AccountResponse> getAccountsByCustomer(GetAccountsRequest request);
-    public AccountResponse closeAccount(CloseAccountRequest request);
-    public AccountResponse freezeAccount(FreezeAccountRequest request);
-    public AccountResponse unfreezeAccount(UnfreezeAccountRequest request);
+    public AccountStatusResponse closeAccount(CloseAccountRequest request);
+    public AccountStatusResponse freezeAccount(FreezeAccountRequest request);
+    public AccountStatusResponse unfreezeAccount(UnfreezeAccountRequest request);
     public AccountResponse getAccountDetails(GetAccountDetailsRequest request);
 }
