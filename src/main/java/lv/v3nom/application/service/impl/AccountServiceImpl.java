@@ -2,6 +2,7 @@ package lv.v3nom.application.service.impl;
 
 import lv.v3nom.application.dto.requests.*;
 import lv.v3nom.application.dto.responses.AccountResponse;
+import lv.v3nom.application.dto.responses.AccountStatusResponse;
 import lv.v3nom.application.dto.responses.BalanceResponse;
 import lv.v3nom.application.dto.responses.TransactionResponse;
 import lv.v3nom.application.mapper.AccountMapper;
@@ -15,7 +16,6 @@ import lv.v3nom.infrastructure.idempotency.IdempotencyStore;
 import lv.v3nom.infrastructure.repository.INMEM.AccountRepository;
 import lv.v3nom.infrastructure.repository.INMEM.CustomerRepository;
 import lv.v3nom.infrastructure.repository.INMEM.TransactionRepository;
-import lv.v3nom.infrastructure.security.PermissionChecker;
 import lv.v3nom.infrastructure.security.TokenStore;
 import lv.v3nom.infrastructure.time.impl.SystemDateTimeProvider;
 
@@ -383,7 +383,7 @@ public class AccountServiceImpl implements AccountService {
         return response;
     }
     @Override
-    public AccountResponse closeAccount(CloseAccountRequest request) {
+    public AccountStatusResponse closeAccount(CloseAccountRequest request) {
         SystemDateTimeProvider time = new SystemDateTimeProvider();
         CustomerId authenticatedId = tokenStore.getCustomerId(request.getCurrentSessionToken());
         AccountId accountId = AccountId.of(request.getAccountId());
@@ -398,12 +398,16 @@ public class AccountServiceImpl implements AccountService {
                     authenticatedId
             );
 
-            return AccountMapper.failureResponse(authenticatedId.getValue(), OperationStatus.FAILURE);
+            return new AccountStatusResponse(
+                    null,
+                    OperationStatus.FAILURE.getValue(),
+                    failureReason
+            );
         }
 
         Object cachedResponse = idempotencyStore.retrieve(authenticatedId, idempotencyKey);
         if (cachedResponse != null) {
-            return (AccountResponse) cachedResponse;
+            return (AccountStatusResponse) cachedResponse;
         }
 
         Account account = accountRepository.findById(accountId);
@@ -418,18 +422,26 @@ public class AccountServiceImpl implements AccountService {
                     authenticatedId
             );
 
-            return AccountMapper.failureResponse(failureReason, OperationStatus.FAILURE);
+            return new AccountStatusResponse(
+                    null,
+                    OperationStatus.FAILURE.getValue(),
+                    failureReason
+            );
         }
 
         account.close(time.now());
         accountRepository.save(account);
-        AccountResponse response = AccountMapper.toResponse(account, OperationStatus.SUCCESS);
+        AccountStatusResponse response = new AccountStatusResponse(
+                account.getAccountStatus().getValue(),
+                OperationStatus.SUCCESS.getValue(),
+                null
+        );
         idempotencyStore.store(authenticatedId, idempotencyKey, response);
 
         return response;
     }
     @Override
-    public AccountResponse freezeAccount(FreezeAccountRequest request) {
+    public AccountStatusResponse freezeAccount(FreezeAccountRequest request) {
         SystemDateTimeProvider time = new SystemDateTimeProvider();
         CustomerId authenticatedId = tokenStore.getCustomerId(request.getCurrentSessionToken());
         AccountId accountId = AccountId.of(request.getAccountId());
@@ -444,12 +456,16 @@ public class AccountServiceImpl implements AccountService {
                     authenticatedId
             );
 
-            return AccountMapper.failureResponse(authenticatedId.getValue(), OperationStatus.FAILURE);
+            return new AccountStatusResponse(
+                    null,
+                    OperationStatus.FAILURE.getValue(),
+                    failureReason
+            );
         }
 
         Object cachedResponse = idempotencyStore.retrieve(authenticatedId, idempotencyKey);
         if (cachedResponse != null) {
-            return (AccountResponse) cachedResponse;
+            return (AccountStatusResponse) cachedResponse;
         }
 
         Account account = accountRepository.findById(accountId);
@@ -464,18 +480,26 @@ public class AccountServiceImpl implements AccountService {
                     authenticatedId
             );
 
-            return AccountMapper.failureResponse(failureReason, OperationStatus.FAILURE);
+            return new AccountStatusResponse(
+                    null,
+                    OperationStatus.FAILURE.getValue(),
+                    failureReason
+            );
         }
 
         account.freeze(time.now());
         accountRepository.save(account);
-        AccountResponse response = AccountMapper.toResponse(account, OperationStatus.SUCCESS);
+        AccountStatusResponse response = new AccountStatusResponse(
+                account.getAccountStatus().getValue(),
+                OperationStatus.SUCCESS.getValue(),
+                null
+        );
         idempotencyStore.store(authenticatedId, idempotencyKey, response);
 
         return response;
     }
     @Override
-    public AccountResponse unfreezeAccount(UnfreezeAccountRequest request) {
+    public AccountStatusResponse unfreezeAccount(UnfreezeAccountRequest request) {
         SystemDateTimeProvider time = new SystemDateTimeProvider();
         CustomerId authenticatedId = tokenStore.getCustomerId(request.getCurrentSessionToken());
         AccountId accountId = AccountId.of(request.getAccountId());
@@ -490,12 +514,16 @@ public class AccountServiceImpl implements AccountService {
                     authenticatedId
             );
 
-            return AccountMapper.failureResponse(authenticatedId.getValue(), OperationStatus.FAILURE);
+            return new AccountStatusResponse(
+                    null,
+                    OperationStatus.FAILURE.getValue(),
+                    failureReason
+            );
         }
 
         Object cachedResponse = idempotencyStore.retrieve(authenticatedId, idempotencyKey);
         if (cachedResponse != null) {
-            return (AccountResponse) cachedResponse;
+            return (AccountStatusResponse) cachedResponse;
         }
 
         Account account = accountRepository.findById(accountId);
@@ -510,12 +538,20 @@ public class AccountServiceImpl implements AccountService {
                     authenticatedId
             );
 
-            return AccountMapper.failureResponse(failureReason, OperationStatus.FAILURE);
+            return new AccountStatusResponse(
+                    null,
+                    OperationStatus.FAILURE.getValue(),
+                    failureReason
+            );
         }
 
         account.unfreeze(time.now());
         accountRepository.save(account);
-        AccountResponse response = AccountMapper.toResponse(account, OperationStatus.SUCCESS);
+        AccountStatusResponse response = new AccountStatusResponse(
+                account.getAccountStatus().getValue(),
+                OperationStatus.SUCCESS.getValue(),
+                null
+        );
         idempotencyStore.store(authenticatedId, idempotencyKey, response);
 
         return response;
