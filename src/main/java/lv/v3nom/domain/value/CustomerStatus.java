@@ -21,6 +21,19 @@ public final class CustomerStatus {
     public static final CustomerStatus CLOSED =
             new CustomerStatus("CLOSED");
 
+    public CustomerStatus of(String value) {
+        if (value != CustomerStatus.PENDING_VERIFICATION.value
+                || value != CustomerStatus.ACTIVE.value
+                || value != CustomerStatus.SUSPENDED.value
+                || value != CustomerStatus.BANNED.value
+                || value != CustomerStatus.CLOSED.value) {
+
+            throw new IllegalArgumentException("Wrong account status format");
+        }
+
+        return new CustomerStatus(value);
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;

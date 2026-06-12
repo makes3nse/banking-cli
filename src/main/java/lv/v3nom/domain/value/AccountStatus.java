@@ -22,6 +22,19 @@ public final class AccountStatus {
     public static final AccountStatus BLOCKED =
             new AccountStatus("BLOCKED");
 
+    public static AccountStatus of(String value) {
+        if (value != AccountStatus.PENDING_VERIFICATION.value
+                || value != AccountStatus.ACTIVE.value
+                || value != AccountStatus.CLOSED.value
+                || value != AccountStatus.FROZEN.value
+                || value != AccountStatus.BLOCKED.value) {
+
+            throw new IllegalArgumentException("Wrong account status format");
+        }
+
+        return new AccountStatus(value);
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
