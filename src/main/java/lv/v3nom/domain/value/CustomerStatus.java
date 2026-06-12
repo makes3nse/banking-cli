@@ -21,7 +21,7 @@ public final class CustomerStatus {
     public static final CustomerStatus CLOSED =
             new CustomerStatus("CLOSED");
 
-    public CustomerStatus of(String value) {
+    public static CustomerStatus of(String value) {
         if (value != CustomerStatus.PENDING_VERIFICATION.value
                 || value != CustomerStatus.ACTIVE.value
                 || value != CustomerStatus.SUSPENDED.value
