@@ -151,6 +151,14 @@ public class Account {
         this.accountStatus = AccountStatus.FROZEN;
         this.updatedAt = updatedAt;
     }
+    public void unfreeze(LocalDateTime updatedAt) {
+        if (this.accountStatus != AccountStatus.FROZEN) {
+            throw new IllegalStateException("Cannot unfreeze " + this.accountStatus.getValue() + " account");
+        }
+
+        this.accountStatus = AccountStatus.ACTIVE;
+        this.updatedAt = updatedAt;
+    }
 
     public AccountId getAccountId() { return accountId; }
     public CustomerId getOwnerId() { return ownerId; }
