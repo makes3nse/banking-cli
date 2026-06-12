@@ -430,14 +430,131 @@ public class AccountServiceImpl implements AccountService {
     }
     @Override
     public AccountResponse freezeAccount(FreezeAccountRequest request) {
-        return null;
+        SystemDateTimeProvider time = new SystemDateTimeProvider();
+        CustomerId authenticatedId = tokenStore.getCustomerId(request.getCurrentSessionToken());
+        AccountId accountId = AccountId.of(request.getAccountId());
+        IdempotencyKey idempotencyKey = IdempotencyKey.of(request.getIdempotencyKey());
+
+        boolean isValidToken = tokenStore.isValid(request.getCurrentSessionToken(), time.now());
+        if (authenticatedId == null || !isValidToken) {
+            String failureReason = String.format(
+                    "Token: %s; Validity: %s; User: %s;",
+                    request.getCurrentSessionToken(),
+                    isValidToken,
+                    authenticatedId
+            );
+
+            return AccountMapper.failureResponse(authenticatedId.getValue(), OperationStatus.FAILURE);
+        }
+
+        Object cachedResponse = idempotencyStore.retrieve(authenticatedId, idempotencyKey);
+        if (cachedResponse != null) {
+            return (AccountResponse) cachedResponse;
+        }
+
+        Account account = accountRepository.findById(accountId);
+        boolean isExistingAccount = account != null;
+        boolean isOwnedByAuthenticatedCustomer = account.getOwnerId().equals(authenticatedId);
+        if (!isExistingAccount || !isOwnedByAuthenticatedCustomer) {
+            String failureReason = String.format(
+                    "Account: %s; Owned: %; Exists: %s; User: %s;",
+                    request.getAccountId(),
+                    isOwnedByAuthenticatedCustomer,
+                    isExistingAccount,
+                    authenticatedId
+            );
+
+            return AccountMapper.failureResponse(failureReason, OperationStatus.FAILURE);
+        }
+
+        account.freeze(time.now());
+        accountRepository.save(account);
+        AccountResponse response = AccountMapper.toResponse(account, OperationStatus.SUCCESS);
+        idempotencyStore.store(authenticatedId, idempotencyKey, response);
+
+        return response;
     }
     @Override
     public AccountResponse unfreezeAccount(UnfreezeAccountRequest request) {
-        return null;
+        SystemDateTimeProvider time = new SystemDateTimeProvider();
+        CustomerId authenticatedId = tokenStore.getCustomerId(request.getCurrentSessionToken());
+        AccountId accountId = AccountId.of(request.getAccountId());
+        IdempotencyKey idempotencyKey = IdempotencyKey.of(request.getIdempotencyKey());
+
+        boolean isValidToken = tokenStore.isValid(request.getCurrentSessionToken(), time.now());
+        if (authenticatedId == null || !isValidToken) {
+            String failureReason = String.format(
+                    "Token: %s; Validity: %s; User: %s;",
+                    request.getCurrentSessionToken(),
+                    isValidToken,
+                    authenticatedId
+            );
+
+            return AccountMapper.failureResponse(authenticatedId.getValue(), OperationStatus.FAILURE);
+        }
+
+        Object cachedResponse = idempotencyStore.retrieve(authenticatedId, idempotencyKey);
+        if (cachedResponse != null) {
+            return (AccountResponse) cachedResponse;
+        }
+
+        Account account = accountRepository.findById(accountId);
+        boolean isExistingAccount = account != null;
+        boolean isOwnedByAuthenticatedCustomer = account.getOwnerId().equals(authenticatedId);
+        if (!isExistingAccount || !isOwnedByAuthenticatedCustomer) {
+            String failureReason = String.format(
+                    "Account: %s; Owned: %; Exists: %s; User: %s;",
+                    request.getAccountId(),
+                    isOwnedByAuthenticatedCustomer,
+                    isExistingAccount,
+                    authenticatedId
+            );
+
+            return AccountMapper.failureResponse(failureReason, OperationStatus.FAILURE);
+        }
+
+        account.unfreeze(time.now());
+        accountRepository.save(account);
+        AccountResponse response = AccountMapper.toResponse(account, OperationStatus.SUCCESS);
+        idempotencyStore.store(authenticatedId, idempotencyKey, response);
+
+        return response;
     }
     @Override
     public AccountResponse getAccountDetails(GetAccountDetailsRequest request) {
-        return null;
+        SystemDateTimeProvider time = new SystemDateTimeProvider();
+        AccountId accountId = AccountId.of(request.getAccountId());
+        CustomerId authenticatedId = tokenStore.getCustomerId(request.getCurrentSessionToken());
+
+        boolean isValidToken = tokenStore.isValid(request.getCurrentSessionToken(), time.now());
+        if (authenticatedId == null || !isValidToken) {
+            String failureReason = String.format(
+                    "Token: %s; Validity: %s; User: %s;",
+                    request.getCurrentSessionToken(),
+                    isValidToken,
+                    authenticatedId
+            );
+
+            return AccountMapper.failureResponse(failureReason, OperationStatus.FAILURE);
+        }
+
+        Account account = accountRepository.findById(accountId);
+        boolean isOwnedByAuthenticatedCustomer = account.getOwnerId().equals(authenticatedId);
+        boolean isExistingAccount = account != null;
+        if (!isExistingAccount || !isOwnedByAuthenticatedCustomer) {
+            String failureReason = String.format(
+                    "Account: %s; Owned: %; Exists: %s; User: %s;",
+                    request.getAccountId(),
+                    isOwnedByAuthenticatedCustomer,
+                    isExistingAccount,
+                    authenticatedId
+            );
+
+            return AccountMapper.failureResponse(failureReason, OperationStatus.FAILURE);
+        }
+
+        AccountResponse response = AccountMapper.toResponse(account, OperationStatus.SUCCESS);
+
+        return response;
     }
 }
