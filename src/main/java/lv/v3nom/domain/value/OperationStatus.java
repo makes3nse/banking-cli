@@ -38,6 +38,21 @@ public final class OperationStatus {
     public static final OperationStatus UNKNOWN =
             new OperationStatus("UNKNOWN", true, false, "");
 
+    public static OperationStatus of(String value) {
+        switch (value) {
+            case "PROCESSING":
+                return OperationStatus.PROCESSING;
+            case "SUCCESS":
+                return OperationStatus.SUCCESS;
+            case "FAILURE":
+                return OperationStatus.FAILURE;
+            case "UNKNOWN":
+                return OperationStatus.UNKNOWN;
+            default:
+                throw new IllegalArgumentException("Wrong operation status format");
+        }
+    }
+
     @Override
     public boolean equals(Object o) {
         if (o == this) return true;
