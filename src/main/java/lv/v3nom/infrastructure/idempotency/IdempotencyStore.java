@@ -7,21 +7,29 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class IdempotencyStore {
-    private final Map<String, IdempotencyEntry> idempotencyStore = new HashMap<>();
+    private final Map<String, IdempotencyEntryJSON> idempotencyStore = new HashMap<>();
     private final long ttlMillis;
 
     public IdempotencyStore(long ttlSeconds) {
         this.ttlMillis = ttlSeconds * 1000;
     }
 
-    public void store(CustomerId customerId, IdempotencyKey idempotencyKey, Object response) {
-        String combinedKey = customerId.toString() + ":" + idempotencyKey.toString();
+    // Redundant, direct object access only can be used in Monolith architecture
+    //    public void store(CustomerId customerId, IdempotencyKey idempotencyKey, Object response) {
+    //        String combinedKey = customerId.toString() + ":" + idempotencyKey.toString();
+    //        long expiryTime = System.currentTimeMillis() + ttlMillis;
+    //        idempotencyStore.put(combinedKey, IdempotencyEntry.of(response, expiryTime));
+    //    }
+    public void storeRaw(CustomerId customerId, IdempotencyKey idempotencyKey, String responseRaw) {
+        String combinedKey =  customerId.toString() + ":" + idempotencyKey.toString();
         long expiryTime = System.currentTimeMillis() + ttlMillis;
-        idempotencyStore.put(combinedKey, IdempotencyEntry.of(response, expiryTime));
+        // Switching to JSON via GSON
+        // Send and get via SaveCachedResponseRequest DTO
+        idempotencyStore.put(combinedKey, IdempotencyEntryJSON.of(responseRaw, expiryTime));
     }
-    public Object retrieve(CustomerId customerId, IdempotencyKey idempotencyKey) {
+    public String retrieve(CustomerId customerId, IdempotencyKey idempotencyKey) {
         String combinedKey = customerId.toString() + ":" + idempotencyKey.toString();
-        IdempotencyEntry entry = idempotencyStore.get(combinedKey);
+        IdempotencyEntryJSON entry = idempotencyStore.get(combinedKey);
 
         if (entry == null) return null;
         if (System.currentTimeMillis() > entry.getExpiryTime()) {
