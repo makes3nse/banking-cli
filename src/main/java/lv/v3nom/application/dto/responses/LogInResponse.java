@@ -1,6 +1,6 @@
 package lv.v3nom.application.dto.responses;
 
-public class AuthResponse {
+public class LogInResponse {
     private String customerId;
     private String sessionToken;
     private boolean success;
@@ -9,14 +9,14 @@ public class AuthResponse {
     private String operationStatus;
     private String errorMessage;
 
-    public AuthResponse() {}
-    public AuthResponse(String customerId,
-                        String sessionToken,
-                        boolean success,
-                        String status,
-                        String name,
-                        String operationStatus,
-                        String errorMessage) {
+    public LogInResponse() {}
+    public LogInResponse(String customerId,
+                         String sessionToken,
+                         boolean success,
+                         String status,
+                         String name,
+                         String operationStatus,
+                         String errorMessage) {
 
         this.customerId = customerId;
         this.sessionToken = sessionToken;
