@@ -35,6 +35,22 @@ public final class TransactionType {
     public static final TransactionType INTEREST =
             new TransactionType("INT", "INTEREST", true, false);
 
+    public static TransactionType of(String transactionName) {
+        switch (transactionName) {
+            case "DEPOSIT":
+                return TransactionType.DEPOSIT;
+            case "WITHDRAW":
+                return TransactionType.WITHDRAW;
+            case "TRANSFER":
+                return TransactionType.TRANSFER;
+            case "FEE":
+                return TransactionType.FEE;
+            case "INTEREST":
+                return TransactionType.INTEREST;
+            default:
+                throw new IllegalArgumentException("Wrong transaction type format");
+        }
+    }
     public boolean affectsBalance() {
         return affectsBalance;
     }
