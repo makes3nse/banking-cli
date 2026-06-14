@@ -1,4 +1,4 @@
-﻿# Banking CLI (Non HTTP)
+﻿# Banking backend via CLI (Non HTTP) >> TOMCAT in later versions
 
 A semi-realistic banking command-line interface built to:
 1. Test and validate a custom Dependency Injection container implementation.
@@ -67,6 +67,6 @@ See [GitHub Issues with "roadmap" label](https://github.com/makes3nse/banking-cl
 - [ ] TOMCAT
 - [ ] SERVLET
 - [ ] Complete Web Support
-- [ ] Multilang support
+- [ ] Multi-lang support
 - [ ] Docker containerization
 - [ ] Rate Limiting
