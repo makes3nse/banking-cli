@@ -12,6 +12,6 @@ public interface TransactionService {
     TransactionResponse createWithdrawTransaction(CreateTransactionRequest request);
     TransactionResponse createTransferTransaction(CreateTransactionRequest request);
     TransactionResponse completeTransaction(CompleteTransactionRequest request);
-    TransactionResponse returnTransaction(CompleteTransactionRequest request);
-    TransactionResponse rejectTransaction(CompleteTransactionRequest request);
+    TransactionResponse returnTransaction(ReturnTransactionRequest request);
+    TransactionResponse rejectTransaction(RejectTransactionRequest request);
 }
