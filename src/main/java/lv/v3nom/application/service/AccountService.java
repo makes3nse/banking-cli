@@ -9,14 +9,14 @@ import lv.v3nom.application.dto.responses.TransactionResponse;
 import java.util.List;
 
 public interface AccountService {
-    public AccountResponse openAccount(OpenAccountRequest request);
-    public TransactionResponse deposit(DepositRequest request);
-    public TransactionResponse withdraw(WithdrawRequest request);
-    public TransactionResponse transfer(TransferRequest request);
-    public BalanceResponse getBalance(ViewBalanceRequest request);
-    public List<AccountResponse> getAccountsByCustomer(GetAccountsRequest request);
-    public AccountStatusResponse closeAccount(CloseAccountRequest request);
-    public AccountStatusResponse freezeAccount(FreezeAccountRequest request);
-    public AccountStatusResponse unfreezeAccount(UnfreezeAccountRequest request);
-    public AccountResponse getAccountDetails(GetAccountDetailsRequest request);
+    AccountResponse openAccount(OpenAccountRequest request);
+    TransactionResponse deposit(DepositRequest request);
+    TransactionResponse withdraw(WithdrawRequest request);
+    TransactionResponse transfer(TransferRequest request);
+    BalanceResponse getBalance(ViewBalanceRequest request);
+    List<AccountResponse> getAccountsByCustomer(GetAccountsRequest request);
+    AccountStatusResponse closeAccount(CloseAccountRequest request);
+    AccountStatusResponse freezeAccount(FreezeAccountRequest request);
+    AccountStatusResponse unfreezeAccount(UnfreezeAccountRequest request);
+    AccountResponse getAccountDetails(GetAccountDetailsRequest request);
 }
