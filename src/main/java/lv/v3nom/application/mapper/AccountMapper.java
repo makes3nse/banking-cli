@@ -33,7 +33,6 @@ public class AccountMapper {
     public static BalanceResponse toBalanceResponse(Account account, OperationStatus operationStatus) {
         return new BalanceResponse(
                 account.getAccountId().getValue(),
-                account.getAccountStatus().getValue(),
                 account.getCurrency().value(),
                 account.getBalance().getValue(),
                 operationStatus.getValue(),
@@ -53,7 +52,6 @@ public class AccountMapper {
     }
     public static BalanceResponse failureResponseBalance(String failureReason, OperationStatus operationStatus) {
         return new BalanceResponse(
-                null,
                 null,
                 null,
                 null,
