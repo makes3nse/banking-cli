@@ -1,107 +1,142 @@
 package lv.v3nom.application.service.impl;
 
+import com.google.gson.Gson;
 import lv.v3nom.application.dto.requests.*;
-import lv.v3nom.application.dto.responses.AccountResponse;
-import lv.v3nom.application.dto.responses.AccountStatusResponse;
-import lv.v3nom.application.dto.responses.BalanceResponse;
-import lv.v3nom.application.dto.responses.TransactionResponse;
+import lv.v3nom.application.dto.responses.*;
 import lv.v3nom.application.mapper.AccountMapper;
-import lv.v3nom.application.mapper.TransactionMapper;
 import lv.v3nom.application.service.AccountService;
+import lv.v3nom.application.service.AuthService;
+import lv.v3nom.application.service.CustomerService;
+import lv.v3nom.application.service.TransactionService;
 import lv.v3nom.domain.model.Account;
-import lv.v3nom.domain.model.Customer;
-import lv.v3nom.domain.model.Transaction;
 import lv.v3nom.domain.value.*;
-import lv.v3nom.infrastructure.idempotency.IdempotencyStore;
 import lv.v3nom.infrastructure.repository.INMEM.AccountRepository;
-import lv.v3nom.infrastructure.repository.INMEM.CustomerRepository;
-import lv.v3nom.infrastructure.repository.INMEM.TransactionRepository;
-import lv.v3nom.infrastructure.security.TokenStore;
 import lv.v3nom.infrastructure.time.impl.SystemDateTimeProvider;
 
 import java.util.ArrayList;
 import java.util.List;
 
 public class AccountServiceImpl implements AccountService {
-    private final TokenStore tokenStore;
-    private final IdempotencyStore idempotencyStore;
-    private final CustomerRepository customerRepository;
+    private final AuthService authService;
+    private final CustomerService customerService;
+    private final TransactionService transactionService;
     private final AccountRepository accountRepository;
-    private final TransactionRepository transactionRepository;
+    private final Gson gson;
 
-    public AccountServiceImpl(TokenStore tokenStore,
-                              IdempotencyStore idempotencyStore,
-                              CustomerRepository customerRepository,
+    public AccountServiceImpl(AuthService authService,
+                              CustomerService customerService,
+                              TransactionService transactionService,
                               AccountRepository accountRepository,
-                              TransactionRepository transactionRepository) {
+                              Gson gson) {
 
-        this.tokenStore = tokenStore;
-        this.idempotencyStore = idempotencyStore;
-        this.customerRepository = customerRepository;
+        this.authService = authService;
+        this.customerService = customerService;
+        this.transactionService = transactionService;
         this.accountRepository = accountRepository;
-        this.transactionRepository = transactionRepository;
+        this.gson = gson;
     }
 
-    //    Validate session token    --> get authenticatedId CustomerId
-    //    Check idempotency         --> return cached if exists
-    //    Solve target CustomerId (from DTO)
-    //    Authorize                 --> customer can open for self
-    //    Create account via entity factory
-    //    Save to repo
-    //    Cache response
-    //    Return response
+    //    TODO
+    //      Validate session token    --> get authenticatedId CustomerId
+    //      Check idempotency         --> return cached if exists
+    //      Solve target CustomerId (from DTO)
+    //      Authorize                 --> customer can open for self
+    //      Create account via entity factory
+    //      Save to repo
+    //      Cache response
+    //      Return response
     @Override
     public AccountResponse openAccount(OpenAccountRequest request) {
         SystemDateTimeProvider time = new SystemDateTimeProvider();
 
         Currency currency = Currency.of(request.getCurrency());
-        IdempotencyKey idempotencyKey = IdempotencyKey.of(request.getIdempotencyKey());
-        CustomerId authenticatedId = tokenStore.getCustomerId(request.getCurrentSessionToken());
+        String sessionToken = request.getCurrentSessionToken();
+        String idempotencyKey = request.getIdempotencyKey();
+        AuthResponse authResponse = authService.authenticate(new AuthRequest(sessionToken));
+        CustomerId authenticatedId = CustomerId.of(authResponse.getCustomerId());
 
-        boolean isValidToken = tokenStore.isValid(request.getCurrentSessionToken(), time.now());
+        BooleanResponse tokenValidityResponse = authService.validateToken(new ValidateTokenRequest(sessionToken));
+        boolean isValidToken = tokenValidityResponse.value();
         if (authenticatedId == null || !isValidToken) {
             return AccountMapper.failureResponse(authenticatedId.toString(), OperationStatus.FAILURE);
         }
 
-        Object cachedResponse = idempotencyStore.retrieve(authenticatedId, idempotencyKey);
+        CachedResponse cachedResponse = authService.getCachedResponse(
+                new GetCachedResponseRequest(authenticatedId.getValue(), idempotencyKey));
         if (cachedResponse != null) {
-            return (AccountResponse) cachedResponse;
+            AccountResponse accountResponse = gson.fromJson(
+                    cachedResponse.getResponseJson(),
+                    AccountResponse.class
+            );
+            return accountResponse;
         }
 
-        Customer customer = customerRepository.findById(authenticatedId);
+        // TODO
+        //  later add TOMCAT and separate services to different projects,
+        //  establish comms over HTTP
+        //  something like:
+        //  private final RestTemplate restTemplate;
+        //  String url = "http://localhost:8082/getCustomer";
+        //  GetCustomerRequest request = new GetCustomerRequest(sessionToken);
+        //  CustomerResponse customerResponse = restTemplate.postForObject(url, request, CustomerResponse.class);
 
-        Account account = Account.open(authenticatedId, currency, customer.getCustomerStatus(), time.now());
+        CustomerResponse customerResponse = customerService.getCustomer(new GetCustomerRequest(sessionToken));
+
+        // TODO ::: WE DON'T NEED FULL CUSTOMER_ENTITY AS IT HAS PASSWORDS AND ALL THAT SHIT INSIDE,
+        //  SO WE JUST NEED TO GET A GENERAL-PURPOSE CUSTOMER_RESPONSE WITHOUT SENSITIVE DATA,
+        //  WE CAN RETRIEVE ALL NEEDED DATA FROM CUSTOMER_RESPONSE, SUCH AS _STATUS, _ID ETC.
+        Account account = Account.open(
+                authenticatedId,
+                currency,
+                CustomerStatus.of(customerResponse.getStatus()),
+                time.now()
+        );
+        // TODO ::: CHANGE ALL IDEMPOTENCY MECHANISMS IN THIS SERVICE AND ALL OTHER SERVICES,
+        //  SO THEY STORE AND RETRIEVE JSON STRINGS AND SERIALIZE AND DESERIALIZE THEM WHEN NEEDED USING GSON.
         accountRepository.save(account);
+
         AccountResponse response = AccountMapper.toResponse(account, OperationStatus.SUCCESS);
-        idempotencyStore.store(authenticatedId, idempotencyKey, response);
+
+        SaveCachedResponseRequest saveCachedResponseRequest = new SaveCachedResponseRequest(
+                authenticatedId.getValue(),
+                request.getIdempotencyKey(),
+                gson.toJson(response),
+                response.getClass().getSimpleName()
+        );
+
+        authService.saveCachedResponse(saveCachedResponseRequest);
+        // TODO ::: ALSO, CHANGE ALL TRANSACTION_REPOSITORY DIRECT CALLS TO TRANSACTION_SERVICE CALLS,
+        //  IMPLEMENT ALL NEEDED INTERACTION IN RESPONSIBLE SERVICE, TALK VIA DTOs
 
         return response;
     }
 
     //    TODO
-    //    Validate token            --> get customer ID
-    //    Check idempotency
-    //    Load account by CustId
-    //    Authorize (customer owns account)
-    //    Create transaction (PENDING)
-    //    Execute deposit on account entity
-    //    Complete transaction
-    //    Save account + transaction
-    //    Cache response
-    //    Return response
+    //      Validate token            --> get customer ID
+    //      Check idempotency
+    //      Load account by CustId
+    //      Authorize (customer owns account)
+    //      Create transaction (PENDING)
+    //      Execute deposit on account entity
+    //      Complete transaction
+    //      Save account + transaction
+    //      Cache response
+    //      Return response
     @Override
     public TransactionResponse deposit(DepositRequest request) {
         SystemDateTimeProvider time = new SystemDateTimeProvider();
 
+        String sessionToken = request.getCurrentSessionToken();
         TransactionType transactionType = TransactionType.DEPOSIT;
         Currency currency = Currency.of(request.getCurrency());
         Money amount = Money.of(request.getAmount(), currency);
         TransactionId transactionId = TransactionId.generate();
         AccountId accountId = AccountId.of(request.getAccountId());
-        IdempotencyKey idempotencyKey = IdempotencyKey.of(request.getIdempotencyKey());
+        AuthResponse authResponse = authService.authenticate(new AuthRequest(sessionToken));
+        CustomerId authenticatedId = CustomerId.of(authResponse.getCustomerId());
 
-        CustomerId authenticatedId = tokenStore.getCustomerId(request.getCurrentSessionToken());
-        boolean isValidToken = tokenStore.isValid(request.getCurrentSessionToken(), time.now());
+        BooleanResponse tokenValidityResponse = authService.validateToken(new ValidateTokenRequest(sessionToken));
+        boolean isValidToken = tokenValidityResponse.value();
         if (!isValidToken || authenticatedId == null) {
             String failureReason = String.format(
                     "Token: %s; Validity: %s; User: %s;",
@@ -109,15 +144,24 @@ public class AccountServiceImpl implements AccountService {
                     isValidToken,
                     authenticatedId
             );
-
-            return TransactionMapper.failureResponse(
-                    transactionType,
+            GetFailureTransactionRequest getFailureTransactionRequest = new GetFailureTransactionRequest(
+                    transactionType.getTransactionName(),
                     failureReason,
-                    OperationStatus.FAILURE);
+                    OperationStatus.FAILURE.getValue()
+            );
+
+            return transactionService.getFailureResponse(getFailureTransactionRequest);
         }
-        Object cachedResponse = idempotencyStore.retrieve(authenticatedId, idempotencyKey);
+
+        CachedResponse cachedResponse = authService.getCachedResponse(
+                new GetCachedResponseRequest(authenticatedId.getValue(), request.getIdempotencyKey())
+        );
         if (cachedResponse != null) {
-            return (TransactionResponse) cachedResponse;
+            TransactionResponse accountResponse = gson.fromJson(
+                    cachedResponse.getResponseJson(),
+                    TransactionResponse.class
+            );
+            return accountResponse;
         }
 
         Account account = accountRepository.findById(accountId);
@@ -132,46 +176,66 @@ public class AccountServiceImpl implements AccountService {
                     isExistingAccount,
                     authenticatedId
             );
-
-            return TransactionMapper.failureResponse(
-                    transactionType,
+            GetFailureTransactionRequest getFailureTransactionRequest = new GetFailureTransactionRequest(
+                    transactionType.getTransactionName(),
                     failureReason,
-                    OperationStatus.FAILURE
+                    OperationStatus.FAILURE.getValue()
             );
+
+            return transactionService.getFailureResponse(getFailureTransactionRequest);
         }
-
-        Transaction depositTransaction = Transaction.createDepositRecord(
-                transactionId,
-                amount,
-                account.getAccountId(),
-                time.now()
+        CreateTransactionRequest createPendingDepositTransactionRequest = new CreateTransactionRequest(
+                transactionType.getTransactionName(),
+                transactionId.getValue(),
+                amount.getValue(),
+                amount.getCurrency().value(),
+                time.now().toString(),
+                accountId.getValue(),
+                accountId.getValue()
         );
+        TransactionResponse pendingTransactionResponse =
+                transactionService.createDepositTransaction(createPendingDepositTransactionRequest);
+
         account.deposit(amount, time.now());
-        depositTransaction.complete(time.now());
         accountRepository.save(account);
-        transactionRepository.save(depositTransaction);
-        TransactionResponse response = TransactionMapper.toResponse(
-                depositTransaction, OperationStatus.SUCCESS
-        );
-        idempotencyStore.store(authenticatedId, idempotencyKey, response);
 
-        return response;
+        CompleteTransactionRequest completeTransactionRequest = new CompleteTransactionRequest(
+                transactionId.getValue(), time.now().toString()
+        );
+        TransactionResponse finalTransactionResponse = transactionService.completeTransaction(
+                completeTransactionRequest
+        );
+        SaveCachedResponseRequest saveCachedResponseRequest = new SaveCachedResponseRequest(
+                authenticatedId.getValue(),
+                request.getIdempotencyKey(),
+                gson.toJson(finalTransactionResponse, TransactionResponse.class),
+                finalTransactionResponse.getClass().getSimpleName()
+
+        );
+
+        authService.saveCachedResponse(saveCachedResponseRequest);
+
+        return finalTransactionResponse;
     }
 
-    //    withdraw TODO
-    //    Same as deposit, but check sufficient balance
+    //    TODO
+    //      withdraw, same as deposit, but check sufficient balance
     @Override
     public TransactionResponse withdraw(WithdrawRequest request) {
         SystemDateTimeProvider time = new SystemDateTimeProvider();
 
         TransactionType transactionType = TransactionType.WITHDRAW;
         IdempotencyKey idempotencyKey = IdempotencyKey.of(request.getIdempotencyKey());
+        String sessionToken = request.getCurrentSessionToken();
         Currency currency = Currency.of(request.getCurrency());
         Money amount = Money.of(request.getAmount(), currency);
+        TransactionId transactionId = TransactionId.generate();
         AccountId accountId = AccountId.of(request.getAccountId());
-        CustomerId authenticatedId = tokenStore.getCustomerId(request.getCurrentSessionToken());
-        
-        boolean isValidToken = tokenStore.isValid(request.getCurrentSessionToken(), time.now());
+        AuthResponse authResponse = authService.authenticate(new AuthRequest(sessionToken));
+        CustomerId authenticatedId = CustomerId.of(authResponse.getCustomerId());
+
+        BooleanResponse tokenValidityResponse = authService.validateToken(new ValidateTokenRequest(sessionToken));
+        boolean isValidToken = tokenValidityResponse.value();
         if (authenticatedId == null || !isValidToken) {
             String failureReason = String.format(
                     "Token: %s; Validity: %s; User: %s;",
@@ -179,14 +243,29 @@ public class AccountServiceImpl implements AccountService {
                     isValidToken,
                     authenticatedId
             );
-            
-            return TransactionMapper.failureResponse(transactionType, failureReason, OperationStatus.FAILURE);
+            GetFailureTransactionRequest getFailureTransactionRequest = new GetFailureTransactionRequest(
+                    transactionType.getTransactionName(),
+                    failureReason,
+                    OperationStatus.FAILURE.getValue()
+            );
+
+            return transactionService.getFailureResponse(getFailureTransactionRequest);
         }
 
-        Object cachedResponse = idempotencyStore.retrieve(authenticatedId, idempotencyKey);
+        GetCachedResponseRequest getCachedResponseRequest = new GetCachedResponseRequest(
+                authenticatedId.getValue(),
+                idempotencyKey.getValue()
+        );
+        CachedResponse cachedResponse = authService.getCachedResponse(getCachedResponseRequest);
         if (cachedResponse != null) {
-            return (TransactionResponse) cachedResponse;
+            TransactionResponse transactionResponse = gson.fromJson(
+                    cachedResponse.getResponseJson(),
+                    TransactionResponse.class
+            );
+
+            return transactionResponse;
         }
+
         Account account = accountRepository.findById(accountId);
 
         boolean isExistingAccount = account != null;
@@ -199,51 +278,77 @@ public class AccountServiceImpl implements AccountService {
                     isExistingAccount,
                     authenticatedId
             );
-
-            return TransactionMapper.failureResponse(
-                    transactionType, failureReason, OperationStatus.FAILURE
+            GetFailureTransactionRequest getFailureTransactionRequest = new GetFailureTransactionRequest(
+                    transactionType.getTransactionName(),
+                    failureReason,
+                    OperationStatus.FAILURE.getValue()
             );
+
+            return transactionService.getFailureResponse(getFailureTransactionRequest);
         }
 
-        Transaction withdrawalTransaction = Transaction.createWithdrawalRecord(
-                TransactionId.generate(), amount, accountId, time.now()
+        CreateTransactionRequest createPendingWithdrawTransactionRequest = new CreateTransactionRequest(
+                transactionType.getTransactionName(),
+                transactionId.getValue(),
+                amount.getValue(),
+                amount.getCurrency().value(),
+                time.now().toString(),
+                accountId.getValue(),
+                accountId.getValue()
         );
-        account.withdraw(amount, time.now());
-        withdrawalTransaction.complete(time.now());
-        accountRepository.save(account);
-        transactionRepository.save(withdrawalTransaction);
-        TransactionResponse response = TransactionMapper.toResponse(
-                withdrawalTransaction, OperationStatus.SUCCESS
-        );
-        idempotencyStore.store(authenticatedId, idempotencyKey, response);
+        TransactionResponse pendingTransactionResponse =
+                transactionService.createWithdrawTransaction(createPendingWithdrawTransactionRequest);
 
-        return response;
+        account.withdraw(amount, time.now());
+        accountRepository.save(account);
+
+        CompleteTransactionRequest completeTransactionRequest = new CompleteTransactionRequest(
+                        transactionId.getValue(), time.now().toString()
+        );
+        TransactionResponse finalTransactionResponse =
+                transactionService.completeTransaction(completeTransactionRequest);
+        SaveCachedResponseRequest saveCachedResponseRequest = new SaveCachedResponseRequest(
+                authenticatedId.getValue(),
+                idempotencyKey.getValue(),
+                gson.toJson(finalTransactionResponse),
+                finalTransactionResponse.getClass().getSimpleName()
+        );
+
+        authService.saveCachedResponse(saveCachedResponseRequest);
+
+        return finalTransactionResponse;
     }
 
-    //    transfer TODO
-    //    Validate token           --> get customer ID
-    //    Check idempotency
-    //    Load source account
-    //    Authorize --> check if customer owns source acc
-    //    Load target account + check if exists and active
-    //    Create transaction (newborn with PENDING --> need to complete)
-    //    Withdraw from source, deposit to target
-    //    Complete transaction
-    //    Save both accounts + transaction
-    //    Cache response
-    //    Return response
+    //    TODO
+    //     transfer
+    //      Validate token           --> get customer ID
+    //      Check idempotency
+    //      Load source account
+    //      Authorize --> check if customer owns source acc
+    //      Load target account + check if exists and active
+    //      Create transaction (newborn with PENDING --> need to complete)
+    //      Withdraw from source, deposit to target
+    //      Complete transaction
+    //      Save both accounts + transaction
+    //      Cache response
+    //      Return response
     @Override
     public TransactionResponse transfer(TransferRequest request) {
         SystemDateTimeProvider time = new SystemDateTimeProvider();
+
         TransactionType transactionType = TransactionType.TRANSFER;
         IdempotencyKey idempotencyKey = IdempotencyKey.of(request.getIdempotencyKey());
-        AccountId sourceAccountId = AccountId.of(request.getSourceAccountId());
-        AccountId targetAccountId = AccountId.of(request.getTargetAccountId());
+        String sessionToken = request.getCurrentSessionToken();
         Currency currency = Currency.of(request.getCurrency());
         Money amount = Money.of(request.getAmount(), currency);
-        CustomerId authenticatedId = tokenStore.getCustomerId(request.getCurrentSessionToken());
+        TransactionId transactionId = TransactionId.generate();
+        AccountId sourceAccountId = AccountId.of(request.getSourceAccountId());
+        AccountId targetAccountId = AccountId.of(request.getTargetAccountId());
+        AuthResponse authResponse = authService.authenticate(new AuthRequest(sessionToken));
+        CustomerId authenticatedId = CustomerId.of(authResponse.getCustomerId());
 
-        boolean isValidToken = tokenStore.isValid(request.getCurrentSessionToken(), time.now());
+        BooleanResponse tokenValidityResponse = authService.validateToken(new ValidateTokenRequest(sessionToken));
+        boolean isValidToken = tokenValidityResponse.value();
         if (authenticatedId == null || !isValidToken) {
             String failureReason = String.format(
                     "Token: %s; Validity: %s; User: %s;",
@@ -251,13 +356,23 @@ public class AccountServiceImpl implements AccountService {
                     isValidToken,
                     authenticatedId
             );
+            GetFailureTransactionRequest getFailureTransactionRequest = new GetFailureTransactionRequest(
+                    transactionType.getTransactionName(), failureReason, OperationStatus.FAILURE.getValue()
+            );
 
-            return TransactionMapper.failureResponse(transactionType, failureReason, OperationStatus.FAILURE);
+            return transactionService.getFailureResponse(getFailureTransactionRequest);
         }
 
-        Object cachedResponse = idempotencyStore.retrieve(authenticatedId, idempotencyKey);
+        GetCachedResponseRequest getCachedResponseRequest = new GetCachedResponseRequest(
+                authenticatedId.getValue(), idempotencyKey.getValue()
+        );
+        CachedResponse cachedResponse = authService.getCachedResponse(getCachedResponseRequest);
         if (cachedResponse != null) {
-            return (TransactionResponse) cachedResponse;
+            TransactionResponse transactionResponse = gson.fromJson(
+                    cachedResponse.getResponseJson(), TransactionResponse.class
+            );
+
+            return transactionResponse;
         }
 
         Account sourceAccount = accountRepository.findById(sourceAccountId);
@@ -271,8 +386,11 @@ public class AccountServiceImpl implements AccountService {
                     isExistingSourceAccount,
                     authenticatedId
             );
+            GetFailureTransactionRequest getFailureTransactionRequest = new GetFailureTransactionRequest(
+                    transactionType.getTransactionName(), failureReason, OperationStatus.FAILURE.getValue()
+            );
 
-            return TransactionMapper.failureResponse(transactionType, failureReason, OperationStatus.FAILURE);
+            return transactionService.getFailureResponse(getFailureTransactionRequest);
         }
 
         Account targetAccount = accountRepository.findById(targetAccountId);
@@ -284,40 +402,64 @@ public class AccountServiceImpl implements AccountService {
                     isExistingTargetAccount,
                     authenticatedId
             );
+            GetFailureTransactionRequest getFailureTransactionRequest = new GetFailureTransactionRequest(
+                    transactionType.getTransactionName(), failureReason, OperationStatus.FAILURE.getValue()
+            );
 
-            return TransactionMapper.failureResponse(transactionType, failureReason, OperationStatus.FAILURE);
+            return transactionService.getFailureResponse(getFailureTransactionRequest);
         }
 
-        Transaction transferTransaction = Transaction.createTransferRecord(
-                TransactionId.generate(),
-                amount,
-                sourceAccountId,
-                targetAccountId,
-                time.now()
+        CreateTransactionRequest createPendingTransferTransactionRequest = new CreateTransactionRequest(
+                transactionType.getTransactionName(),
+                transactionId.getValue(),
+                amount.getValue(),
+                amount.getCurrency().value(),
+                time.now().toString(),
+                sourceAccountId.getValue(),
+                targetAccountId.getValue()
         );
+        TransactionResponse pendingTransactionResponse = transactionService.createTransferTransaction(
+                createPendingTransferTransactionRequest
+        );
+
         sourceAccount.transferToAccount(targetAccount, amount, time.now());
-        transferTransaction.complete(time.now());
         accountRepository.save(sourceAccount);
         accountRepository.save(targetAccount);
-        transactionRepository.save(transferTransaction);
-        TransactionResponse response = TransactionMapper.toResponse(transferTransaction, OperationStatus.SUCCESS);
-        idempotencyStore.store(authenticatedId, idempotencyKey, response);
 
-        return response;
+        CompleteTransactionRequest completeTransactionRequest = new CompleteTransactionRequest(
+                transactionId.getValue(), time.now().toString()
+        );
+        TransactionResponse finalTransactionResponse =
+                transactionService.completeTransaction(completeTransactionRequest);
+        SaveCachedResponseRequest saveCachedResponseRequest = new SaveCachedResponseRequest(
+                authenticatedId.getValue(),
+                idempotencyKey.getValue(),
+                gson.toJson(finalTransactionResponse),
+                finalTransactionResponse.getClass().getSimpleName()
+        );
+
+        authService.saveCachedResponse(saveCachedResponseRequest);
+
+        return finalTransactionResponse;
     }
 
-    //    getBalance TODO
-    //    Validate token            --> get customer ID
-    //    Load account
-    //    Authorize privs
-    //    Return balance from account entity
+    //    TODO
+    //     getBalance
+    //      Validate token            --> get customer ID
+    //      Load account
+    //      Authorize privs
+    //      Return balance from account entity
     @Override
     public BalanceResponse getBalance(ViewBalanceRequest request) {
         SystemDateTimeProvider time = new SystemDateTimeProvider();
-        AccountId accountId = AccountId.of(request.getAccountId());
-        CustomerId authenticatedId = tokenStore.getCustomerId(request.getCurrentSessionToken());
 
-        boolean isValidToken = tokenStore.isValid(request.getCurrentSessionToken(), time.now());
+        String sessionToken = request.getCurrentSessionToken();
+        AccountId accountId = AccountId.of(request.getAccountId());
+        AuthResponse authResponse = authService.authenticate(new AuthRequest(sessionToken));
+        CustomerId authenticatedId = CustomerId.of(authResponse.getCustomerId());
+
+        BooleanResponse tokenValidityResponse = authService.validateToken(new ValidateTokenRequest(sessionToken));
+        boolean isValidToken = tokenValidityResponse.value();
         if (authenticatedId == null || !isValidToken) {
             String failureReason = String.format(
                     "Token: %s; Validity: %s; User: %s;",
@@ -344,23 +486,28 @@ public class AccountServiceImpl implements AccountService {
             return AccountMapper.failureResponseBalance(failureReason, OperationStatus.FAILURE);
         }
 
-        BalanceResponse response = AccountMapper.toBalanceResponse(account, OperationStatus.SUCCESS);
+        BalanceResponse balanceResponse = AccountMapper.toBalanceResponse(account, OperationStatus.SUCCESS);
 
-        return response;
+        return balanceResponse;
     }
 
-    //    getAccountsByCustomer TODO
-    //    Validate token            --> get customer ID
-    //    Determine target customer (self or admin)
-    //    Authorize privs
-    //    Fetch accounts from repository
-    //    Return list of responses
+    //    TODO
+    //     getAccountsByCustomer
+    //      Validate token            --> get customer ID
+    //      Determine target customer (self or admin)
+    //      Authorize privs
+    //      Fetch accounts from repository
+    //      Return list of responses
     @Override
     public List<AccountResponse> getAccountsByCustomer(GetAccountsRequest request) {
         SystemDateTimeProvider time = new SystemDateTimeProvider();
-        CustomerId authenticatedId = tokenStore.getCustomerId(request.getCurrentSessionToken());
 
-        boolean isValidToken = tokenStore.isValid(request.getCurrentSessionToken(), time.now());
+        String sessionToken = request.getCurrentSessionToken();
+        AuthResponse authResponse = authService.authenticate(new AuthRequest(sessionToken));
+        CustomerId authenticatedId = CustomerId.of(authResponse.getCustomerId());
+
+        BooleanResponse tokenValidityResponse = authService.validateToken(new ValidateTokenRequest(sessionToken));
+        boolean isValidToken = tokenValidityResponse.value();
         if (authenticatedId == null || !isValidToken) {
             String failureReason = String.format(
                     "Token: %s; Validity: %s; User: %s;",
@@ -382,14 +529,19 @@ public class AccountServiceImpl implements AccountService {
 
         return response;
     }
+
     @Override
     public AccountStatusResponse closeAccount(CloseAccountRequest request) {
         SystemDateTimeProvider time = new SystemDateTimeProvider();
-        CustomerId authenticatedId = tokenStore.getCustomerId(request.getCurrentSessionToken());
+
+        String sessionToken = request.getCurrentSessionToken();
         AccountId accountId = AccountId.of(request.getAccountId());
         IdempotencyKey idempotencyKey = IdempotencyKey.of(request.getIdempotencyKey());
+        AuthResponse authResponse = authService.authenticate(new AuthRequest(sessionToken));
+        CustomerId authenticatedId = CustomerId.of(authResponse.getCustomerId());
 
-        boolean isValidToken = tokenStore.isValid(request.getCurrentSessionToken(), time.now());
+        BooleanResponse tokenValidityResponse = authService.validateToken(new ValidateTokenRequest(sessionToken));
+        boolean isValidToken = tokenValidityResponse.value();
         if (authenticatedId == null || !isValidToken) {
             String failureReason = String.format(
                     "Token: %s; Validity: %s; User: %s;",
@@ -405,9 +557,17 @@ public class AccountServiceImpl implements AccountService {
             );
         }
 
-        Object cachedResponse = idempotencyStore.retrieve(authenticatedId, idempotencyKey);
+        GetCachedResponseRequest getCachedResponseRequest = new GetCachedResponseRequest(
+                authenticatedId.getValue(),
+                idempotencyKey.getValue()
+        );
+        CachedResponse cachedResponse = authService.getCachedResponse(getCachedResponseRequest);
         if (cachedResponse != null) {
-            return (AccountStatusResponse) cachedResponse;
+            AccountStatusResponse accountStatusResponse = gson.fromJson(
+                    cachedResponse.getResponseJson(), AccountStatusResponse.class
+            );
+
+            return accountStatusResponse;
         }
 
         Account account = accountRepository.findById(accountId);
@@ -431,23 +591,35 @@ public class AccountServiceImpl implements AccountService {
 
         account.close(time.now());
         accountRepository.save(account);
+
         AccountStatusResponse response = new AccountStatusResponse(
                 account.getAccountStatus().getValue(),
                 OperationStatus.SUCCESS.getValue(),
                 null
         );
-        idempotencyStore.store(authenticatedId, idempotencyKey, response);
+        SaveCachedResponseRequest saveCachedResponseRequest = new SaveCachedResponseRequest(
+                authenticatedId.getValue(),
+                idempotencyKey.getValue(),
+                gson.toJson(response),
+                response.getClass().getSimpleName()
+        );
+
+        authService.saveCachedResponse(saveCachedResponseRequest);
 
         return response;
     }
     @Override
     public AccountStatusResponse freezeAccount(FreezeAccountRequest request) {
         SystemDateTimeProvider time = new SystemDateTimeProvider();
-        CustomerId authenticatedId = tokenStore.getCustomerId(request.getCurrentSessionToken());
+
+        String sessionToken = request.getCurrentSessionToken();
         AccountId accountId = AccountId.of(request.getAccountId());
         IdempotencyKey idempotencyKey = IdempotencyKey.of(request.getIdempotencyKey());
+        AuthResponse authResponse = authService.authenticate(new AuthRequest(sessionToken));
+        CustomerId authenticatedId = CustomerId.of(authResponse.getCustomerId());
 
-        boolean isValidToken = tokenStore.isValid(request.getCurrentSessionToken(), time.now());
+        BooleanResponse tokenValidityResponse =  authService.validateToken(new ValidateTokenRequest(sessionToken));
+        boolean isValidToken = tokenValidityResponse.value();
         if (authenticatedId == null || !isValidToken) {
             String failureReason = String.format(
                     "Token: %s; Validity: %s; User: %s;",
@@ -463,9 +635,16 @@ public class AccountServiceImpl implements AccountService {
             );
         }
 
-        Object cachedResponse = idempotencyStore.retrieve(authenticatedId, idempotencyKey);
+        GetCachedResponseRequest getCachedResponseRequest = new GetCachedResponseRequest(
+                authenticatedId.getValue(), idempotencyKey.getValue()
+        );
+        CachedResponse cachedResponse = authService.getCachedResponse(getCachedResponseRequest);
         if (cachedResponse != null) {
-            return (AccountStatusResponse) cachedResponse;
+            AccountStatusResponse accountStatusResponse = gson.fromJson(
+                    cachedResponse.getResponseJson(), AccountStatusResponse.class
+            );
+
+            return accountStatusResponse;
         }
 
         Account account = accountRepository.findById(accountId);
@@ -489,23 +668,35 @@ public class AccountServiceImpl implements AccountService {
 
         account.freeze(time.now());
         accountRepository.save(account);
+
         AccountStatusResponse response = new AccountStatusResponse(
                 account.getAccountStatus().getValue(),
                 OperationStatus.SUCCESS.getValue(),
                 null
         );
-        idempotencyStore.store(authenticatedId, idempotencyKey, response);
+        SaveCachedResponseRequest saveCachedResponseRequest = new SaveCachedResponseRequest(
+                authenticatedId.getValue(),
+                idempotencyKey.getValue(),
+                gson.toJson(response),
+                response.getClass().getSimpleName()
+        );
+
+        authService.saveCachedResponse(saveCachedResponseRequest);
 
         return response;
     }
     @Override
     public AccountStatusResponse unfreezeAccount(UnfreezeAccountRequest request) {
         SystemDateTimeProvider time = new SystemDateTimeProvider();
-        CustomerId authenticatedId = tokenStore.getCustomerId(request.getCurrentSessionToken());
+
+        String sessionToken = request.getCurrentSessionToken();
         AccountId accountId = AccountId.of(request.getAccountId());
         IdempotencyKey idempotencyKey = IdempotencyKey.of(request.getIdempotencyKey());
+        AuthResponse authResponse = authService.authenticate(new AuthRequest(sessionToken));
+        CustomerId authenticatedId = CustomerId.of(authResponse.getCustomerId());
 
-        boolean isValidToken = tokenStore.isValid(request.getCurrentSessionToken(), time.now());
+        BooleanResponse tokenValidityResponse = authService.validateToken(new ValidateTokenRequest(sessionToken));
+        boolean isValidToken = tokenValidityResponse.value();
         if (authenticatedId == null || !isValidToken) {
             String failureReason = String.format(
                     "Token: %s; Validity: %s; User: %s;",
@@ -520,10 +711,16 @@ public class AccountServiceImpl implements AccountService {
                     failureReason
             );
         }
-
-        Object cachedResponse = idempotencyStore.retrieve(authenticatedId, idempotencyKey);
+        GetCachedResponseRequest getCachedResponseRequest = new GetCachedResponseRequest(
+                authenticatedId.getValue(), idempotencyKey.getValue()
+        );
+        CachedResponse cachedResponse = authService.getCachedResponse(getCachedResponseRequest);
         if (cachedResponse != null) {
-            return (AccountStatusResponse) cachedResponse;
+            AccountStatusResponse accountStatusResponse = gson.fromJson(
+                    cachedResponse.getResponseJson(), AccountStatusResponse.class
+            );
+
+            return accountStatusResponse;
         }
 
         Account account = accountRepository.findById(accountId);
@@ -547,22 +744,34 @@ public class AccountServiceImpl implements AccountService {
 
         account.unfreeze(time.now());
         accountRepository.save(account);
+
         AccountStatusResponse response = new AccountStatusResponse(
                 account.getAccountStatus().getValue(),
                 OperationStatus.SUCCESS.getValue(),
                 null
         );
-        idempotencyStore.store(authenticatedId, idempotencyKey, response);
+        SaveCachedResponseRequest saveCachedResponseRequest = new SaveCachedResponseRequest(
+                authenticatedId.getValue(),
+                idempotencyKey.getValue(),
+                gson.toJson(response),
+                response.getClass().getSimpleName()
+        );
+
+        authService.saveCachedResponse(saveCachedResponseRequest);
 
         return response;
     }
     @Override
     public AccountResponse getAccountDetails(GetAccountDetailsRequest request) {
         SystemDateTimeProvider time = new SystemDateTimeProvider();
-        AccountId accountId = AccountId.of(request.getAccountId());
-        CustomerId authenticatedId = tokenStore.getCustomerId(request.getCurrentSessionToken());
 
-        boolean isValidToken = tokenStore.isValid(request.getCurrentSessionToken(), time.now());
+        String sessionToken = request.getCurrentSessionToken();
+        AccountId accountId = AccountId.of(request.getAccountId());
+        AuthResponse authResponse = authService.authenticate(new AuthRequest(sessionToken));
+        CustomerId authenticatedId = CustomerId.of(authResponse.getCustomerId());
+
+        BooleanResponse tokenValidityResponse = authService.validateToken(new ValidateTokenRequest(sessionToken));
+        boolean isValidToken = tokenValidityResponse.value();
         if (authenticatedId == null || !isValidToken) {
             String failureReason = String.format(
                     "Token: %s; Validity: %s; User: %s;",
