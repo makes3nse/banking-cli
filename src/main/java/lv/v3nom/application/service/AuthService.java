@@ -9,7 +9,7 @@ import lv.v3nom.domain.value.CustomerId;
 import lv.v3nom.domain.value.IdempotencyKey;
 
 public interface AuthService {
-    LogInResponse login(AuthRequest request);
+    LogInResponse login(LogInRequest request);
     void logout(LogOutRequest request);
     BooleanResponse validateToken(ValidateTokenRequest tokenValue);
     AuthResponse authenticate(AuthRequest tokenValue);
