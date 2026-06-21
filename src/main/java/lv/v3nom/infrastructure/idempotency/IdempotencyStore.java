@@ -1,6 +1,7 @@
 package lv.v3nom.infrastructure.idempotency;
 
 import lv.v3nom.domain.value.CustomerId;
+import lv.v3nom.domain.value.EmailAddress;
 import lv.v3nom.domain.value.IdempotencyKey;
 
 import java.util.HashMap;
@@ -29,6 +30,18 @@ public class IdempotencyStore {
     }
     public String retrieve(CustomerId customerId, IdempotencyKey idempotencyKey) {
         String combinedKey = customerId.toString() + ":" + idempotencyKey.toString();
+        IdempotencyEntryJSON entry = idempotencyStore.get(combinedKey);
+
+        if (entry == null) return null;
+        if (System.currentTimeMillis() > entry.getExpiryTime()) {
+            idempotencyStore.remove(combinedKey);
+            return null;
+        }
+
+        return entry.getResponse();
+    }
+    public String retrieve(EmailAddress emailAddress, IdempotencyKey idempotencyKey) {
+        String combinedKey = emailAddress.toString() + ":" + idempotencyKey.toString();
         IdempotencyEntryJSON entry = idempotencyStore.get(combinedKey);
 
         if (entry == null) return null;
