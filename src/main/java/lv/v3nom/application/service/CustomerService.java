@@ -12,4 +12,5 @@ public interface CustomerService {
     CustomerResponse getCustomer(GetCustomerRequest request); // fetch id from token --> fetch repo
     CustomerResponse getCustomerByEmail(GetCustomerByEmailRequest request);
     BooleanResponse canManipulateTransactions(CanCustomerManipulateTransactionsRequest request);
+    BooleanResponse validateLoginCredentials(ValidateLoginCredentialsRequest request);
 }
