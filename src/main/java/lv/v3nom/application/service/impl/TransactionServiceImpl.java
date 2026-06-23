@@ -1,41 +1,84 @@
 package lv.v3nom.application.service.impl;
 
 import lv.v3nom.application.dto.requests.*;
-import lv.v3nom.application.dto.responses.BooleanResponse;
-import lv.v3nom.application.dto.responses.CustomerResponse;
-import lv.v3nom.application.dto.responses.TransactionHistoryResponse;
-import lv.v3nom.application.dto.responses.TransactionResponse;
+import lv.v3nom.application.dto.responses.*;
 import lv.v3nom.application.mapper.TransactionMapper;
+import lv.v3nom.application.service.AuthService;
 import lv.v3nom.application.service.CustomerService;
 import lv.v3nom.application.service.TransactionService;
-import lv.v3nom.domain.model.Customer;
 import lv.v3nom.domain.model.Transaction;
 import lv.v3nom.domain.value.*;
 import lv.v3nom.infrastructure.repository.INMEM.TransactionRepository;
-import lv.v3nom.infrastructure.security.PermissionChecker;
 import lv.v3nom.infrastructure.time.impl.SystemDateTimeProvider;
 
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
 
 public class TransactionServiceImpl implements TransactionService{
     private final TransactionRepository transactionRepository;
     private final CustomerService customerService;
+    private final AuthService authService;
 
     public TransactionServiceImpl(TransactionRepository transactionRepository,
-                                  CustomerService customerService) {
+                                  CustomerService customerService,
+                                  AuthService authService) {
 
         this.transactionRepository = transactionRepository;
         this.customerService = customerService;
+        this.authService = authService;
     }
 
     @Override
     public TransactionHistoryResponse getTransactionHistory(TransactionHistoryRequest request) {
-        return null;
+        String sessionToken = request.getCurrentSessionToken();
+        AccountId accountId = AccountId.of(request.getAccountId());
+        LocalDateTime fromRange = LocalDateTime.parse(request.getFromDate());
+        LocalDateTime toRange = LocalDateTime.parse(request.getToDate());
+        AuthResponse authResponse = authService.authenticate(new AuthRequest(sessionToken));
+        CustomerId authenticatedId = CustomerId.of(authResponse.getCustomerId());
+
+        BooleanResponse tokenValidityResponse = authService.validateToken(new ValidateTokenRequest(sessionToken));
+        boolean isValidToken = tokenValidityResponse.value();
+        if (authenticatedId == null || !isValidToken) {
+            String failureReason = String.format(
+                    "Token: %s; Validity: %s; User: %s;",
+                    request.getCurrentSessionToken(),
+                    isValidToken,
+                    authenticatedId
+            );
+
+            return new TransactionHistoryResponse(
+                    null,
+                    0,
+                    OperationStatus.FAILURE.getValue(),
+                    failureReason
+            );
+        }
+
+        List<Transaction> transactions = transactionRepository.findByDateRangeForAccountId(
+                accountId, fromRange, toRange
+        );
+        List<TransactionSummaryResponse> summaryResponses = new ArrayList<>();
+
+        int transactionCount = 0;
+        for (Transaction transaction : transactions) {
+            summaryResponses.add(new TransactionSummaryResponse(transaction));
+            transactionCount += 1;
+        }
+        TransactionHistoryResponse response = new TransactionHistoryResponse(
+                summaryResponses,
+                transactionCount,
+                OperationStatus.SUCCESS.getValue(),
+                OperationStatus.SUCCESS.getDescription()
+        );
+
+        return response;
     }
     @Override
     public TransactionResponse getTransactionDetails(TransactionDetailsRequest request) {
+        // TODO
         return null;
     }
 
