@@ -9,10 +9,11 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 public interface TransactionRepository {
-    public void save(Transaction transaction);
-    public Transaction findById(TransactionId transactionId);
-    public List<Transaction> findAll();
-    public List<Transaction> findByAccountId(AccountId accountId);
-    public List<Transaction> findByStatus(TransactionStatus transactionStatus);
-    public List<Transaction> findByDateRange(LocalDateTime from, LocalDateTime to);
+    void save(Transaction transaction);
+    Transaction findById(TransactionId transactionId);
+    List<Transaction> findAll();
+    List<Transaction> findByAccountId(AccountId accountId);
+    List<Transaction> findByStatus(TransactionStatus transactionStatus);
+    List<Transaction> findByDateRange(LocalDateTime from, LocalDateTime to);
+    List<Transaction> findByDateRangeForAccountId(AccountId accountId, LocalDateTime from, LocalDateTime to);
 }
