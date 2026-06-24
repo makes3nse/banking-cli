@@ -34,7 +34,6 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     public LogInResponse login(LogInRequest request) {
-        // TODO
         //  1. Check idempotency (prevent duplicate logins)
         //  2. Find customer by email via CustomerService
         //  3. Validate credentials (email + password)
@@ -105,7 +104,6 @@ public class AuthServiceImpl implements AuthService {
     }
     @Override
     public BooleanResponse logout(LogOutRequest request) {
-        // TODO
         //  1. Check idempotency
         //  2. Remove token from TokenStore
         //  3. Notify CustomerService about logout
