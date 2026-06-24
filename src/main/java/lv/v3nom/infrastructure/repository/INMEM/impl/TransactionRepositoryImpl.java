@@ -107,4 +107,22 @@ public class TransactionRepositoryImpl implements TransactionRepository {
         }
         return result;
     }
+    public List<Transaction> findByDateRangeForAccountId(AccountId accountId,
+                                                         LocalDateTime from,
+                                                         LocalDateTime to) {
+
+        List<Transaction> result = new ArrayList<>();
+        for (Transaction transaction : transactionDatabase.values()) {
+            LocalDateTime createdAt = transaction.getCreatedAt();
+
+            if (transaction.getSourceAccount() == accountId
+                    || transaction.getTargetAccount() == accountId) {
+                if ((createdAt.isEqual(from) || createdAt.isAfter(from))
+                        && (createdAt.isEqual(to) || createdAt.isBefore(to))) {
+                    result.add(transaction);
+                }
+            }
+        }
+        return result;
+    }
 }
