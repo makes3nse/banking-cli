@@ -151,22 +151,21 @@ public class TransactionServiceImpl implements TransactionService{
                         OperationStatus.of(request.getOperationStatus()));
         return transactionResponse;
     }
-//    TODO
-//      What TransactionService should do
-//      -
-//      1.Create Transaction entity
-//      2.Complete it
-//      3.Save to repository
-//      4.Map to TransactionResponse
-//      -
-//      What AccountService should do (after refactor)
-//      -
-//      1.Validate token & account ownership
-//      2.Call transactionService.createDepositTransaction(accountId, amount, idempotencyKey)
-//      3.Update account balance
-//      4.Return response from TransactionService
     @Override
     public TransactionResponse createDepositTransaction(CreateTransactionRequest request) {
+        //      What TransactionService should do
+        //      -
+        //      1.Create Transaction entity
+        //      2.Complete it
+        //      3.Save to repository
+        //      4.Map to TransactionResponse
+        //      -
+        //      What AccountService should do (after refactor)
+        //      -
+        //      1.Validate token & account ownership
+        //      2.Call transactionService.createDepositTransaction(accountId, amount, idempotencyKey)
+        //      3.Update account balance
+        //      4.Return response from TransactionService
         try {
             Objects.requireNonNull(request.getTransactionType(), "transactionType");
             Objects.requireNonNull(request.getTransactionId(), "transactionId");
