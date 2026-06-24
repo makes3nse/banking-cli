@@ -35,18 +35,17 @@ public class AccountServiceImpl implements AccountService {
         this.accountRepository = accountRepository;
         this.gson = gson;
     }
-
-    //    TODO
-    //      Validate session token    --> get authenticatedId CustomerId
-    //      Check idempotency         --> return cached if exists
-    //      Solve target CustomerId (from DTO)
-    //      Authorize                 --> customer can open for self
-    //      Create account via entity factory
-    //      Save to repo
-    //      Cache response
-    //      Return response
     @Override
     public AccountResponse openAccount(OpenAccountRequest request) {
+        //      Validate session token    --> get authenticatedId CustomerId
+        //      Check idempotency         --> return cached if exists
+        //      Solve target CustomerId (from DTO)
+        //      Authorize                 --> customer can open for self
+        //      Create account via entity factory
+        //      Save to repo
+        //      Cache response
+        //      Return response
+
         SystemDateTimeProvider time = new SystemDateTimeProvider();
 
         Currency currency = Currency.of(request.getCurrency());
@@ -71,7 +70,6 @@ public class AccountServiceImpl implements AccountService {
             return accountResponse;
         }
 
-        // TODO
         //  later add TOMCAT and separate services to different projects,
         //  establish comms over HTTP
         //  something like:
@@ -82,7 +80,7 @@ public class AccountServiceImpl implements AccountService {
 
         CustomerResponse customerResponse = customerService.getCustomer(new GetCustomerRequest(sessionToken));
 
-        // TODO ::: WE DON'T NEED FULL CUSTOMER_ENTITY AS IT HAS PASSWORDS AND ALL THAT SHIT INSIDE,
+        // WE DON'T NEED FULL CUSTOMER_ENTITY AS IT HAS PASSWORDS AND ALL THAT SHIT INSIDE,
         //  SO WE JUST NEED TO GET A GENERAL-PURPOSE CUSTOMER_RESPONSE WITHOUT SENSITIVE DATA,
         //  WE CAN RETRIEVE ALL NEEDED DATA FROM CUSTOMER_RESPONSE, SUCH AS _STATUS, _ID ETC.
         Account account = Account.open(
@@ -91,7 +89,7 @@ public class AccountServiceImpl implements AccountService {
                 CustomerStatus.of(customerResponse.getStatus()),
                 time.now()
         );
-        // TODO ::: CHANGE ALL IDEMPOTENCY MECHANISMS IN THIS SERVICE AND ALL OTHER SERVICES,
+        // CHANGE ALL IDEMPOTENCY MECHANISMS IN THIS SERVICE AND ALL OTHER SERVICES,
         //  SO THEY STORE AND RETRIEVE JSON STRINGS AND SERIALIZE AND DESERIALIZE THEM WHEN NEEDED USING GSON.
         accountRepository.save(account);
 
@@ -105,25 +103,24 @@ public class AccountServiceImpl implements AccountService {
         );
 
         authService.saveCachedResponse(saveCachedResponseRequest);
-        // TODO ::: ALSO, CHANGE ALL TRANSACTION_REPOSITORY DIRECT CALLS TO TRANSACTION_SERVICE CALLS,
+        // ALSO, CHANGE ALL TRANSACTION_REPOSITORY DIRECT CALLS TO TRANSACTION_SERVICE CALLS,
         //  IMPLEMENT ALL NEEDED INTERACTION IN RESPONSIBLE SERVICE, TALK VIA DTOs
 
         return response;
     }
-
-    //    TODO
-    //      Validate token            --> get customer ID
-    //      Check idempotency
-    //      Load account by CustId
-    //      Authorize (customer owns account)
-    //      Create transaction (PENDING)
-    //      Execute deposit on account entity
-    //      Complete transaction
-    //      Save account + transaction
-    //      Cache response
-    //      Return response
     @Override
     public TransactionResponse deposit(DepositRequest request) {
+        //      Validate token            --> get customer ID
+        //      Check idempotency
+        //      Load account by CustId
+        //      Authorize (customer owns account)
+        //      Create transaction (PENDING)
+        //      Execute deposit on account entity
+        //      Complete transaction
+        //      Save account + transaction
+        //      Cache response
+        //      Return response
+
         SystemDateTimeProvider time = new SystemDateTimeProvider();
 
         String sessionToken = request.getCurrentSessionToken();
@@ -217,11 +214,10 @@ public class AccountServiceImpl implements AccountService {
 
         return finalTransactionResponse;
     }
-
-    //    TODO
-    //      withdraw, same as deposit, but check sufficient balance
     @Override
     public TransactionResponse withdraw(WithdrawRequest request) {
+        //      withdraw, same as deposit, but check sufficient balance
+
         SystemDateTimeProvider time = new SystemDateTimeProvider();
 
         TransactionType transactionType = TransactionType.WITHDRAW;
@@ -318,22 +314,20 @@ public class AccountServiceImpl implements AccountService {
 
         return finalTransactionResponse;
     }
-
-    //    TODO
-    //     transfer
-    //      Validate token           --> get customer ID
-    //      Check idempotency
-    //      Load source account
-    //      Authorize --> check if customer owns source acc
-    //      Load target account + check if exists and active
-    //      Create transaction (newborn with PENDING --> need to complete)
-    //      Withdraw from source, deposit to target
-    //      Complete transaction
-    //      Save both accounts + transaction
-    //      Cache response
-    //      Return response
     @Override
     public TransactionResponse transfer(TransferRequest request) {
+        //      Validate token           --> get customer ID
+        //      Check idempotency
+        //      Load source account
+        //      Authorize --> check if customer owns source acc
+        //      Load target account + check if exists and active
+        //      Create transaction (newborn with PENDING --> need to complete)
+        //      Withdraw from source, deposit to target
+        //      Complete transaction
+        //      Save both accounts + transaction
+        //      Cache response
+        //      Return response
+
         SystemDateTimeProvider time = new SystemDateTimeProvider();
 
         TransactionType transactionType = TransactionType.TRANSFER;
@@ -442,15 +436,13 @@ public class AccountServiceImpl implements AccountService {
 
         return finalTransactionResponse;
     }
-
-    //    TODO
-    //     getBalance
-    //      Validate token            --> get customer ID
-    //      Load account
-    //      Authorize privs
-    //      Return balance from account entity
     @Override
     public BalanceResponse getBalance(ViewBalanceRequest request) {
+        //      Validate token            --> get customer ID
+        //      Load account
+        //      Authorize privs
+        //      Return balance from account entity
+
         SystemDateTimeProvider time = new SystemDateTimeProvider();
 
         String sessionToken = request.getCurrentSessionToken();
@@ -490,16 +482,14 @@ public class AccountServiceImpl implements AccountService {
 
         return balanceResponse;
     }
-
-    //    TODO
-    //     getAccountsByCustomer
-    //      Validate token            --> get customer ID
-    //      Determine target customer (self or admin)
-    //      Authorize privs
-    //      Fetch accounts from repository
-    //      Return list of responses
     @Override
     public List<AccountResponse> getAccountsByCustomer(GetAccountsRequest request) {
+        //      Validate token            --> get customer ID
+        //      Determine target customer (self or admin)
+        //      Authorize privs
+        //      Fetch accounts from repository
+        //      Return list of responses
+
         SystemDateTimeProvider time = new SystemDateTimeProvider();
 
         String sessionToken = request.getCurrentSessionToken();
