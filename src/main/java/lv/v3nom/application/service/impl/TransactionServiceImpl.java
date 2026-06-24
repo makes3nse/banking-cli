@@ -3,6 +3,7 @@ package lv.v3nom.application.service.impl;
 import lv.v3nom.application.dto.requests.*;
 import lv.v3nom.application.dto.responses.*;
 import lv.v3nom.application.mapper.TransactionMapper;
+import lv.v3nom.application.service.AccountService;
 import lv.v3nom.application.service.AuthService;
 import lv.v3nom.application.service.CustomerService;
 import lv.v3nom.application.service.TransactionService;
@@ -18,14 +19,17 @@ import java.util.Objects;
 
 public class TransactionServiceImpl implements TransactionService{
     private final TransactionRepository transactionRepository;
+    private final AccountService accountService;
     private final CustomerService customerService;
     private final AuthService authService;
 
     public TransactionServiceImpl(TransactionRepository transactionRepository,
+                                  AccountService accountService,
                                   CustomerService customerService,
                                   AuthService authService) {
 
         this.transactionRepository = transactionRepository;
+        this.accountService = accountService;
         this.customerService = customerService;
         this.authService = authService;
     }
@@ -78,8 +82,64 @@ public class TransactionServiceImpl implements TransactionService{
     }
     @Override
     public TransactionResponse getTransactionDetails(TransactionDetailsRequest request) {
-        // TODO
-        return null;
+        String sessionToken = request.getCurrentSessionToken();
+        AccountId accountId = AccountId.of(request.getAccountId());
+        TransactionId transactionId = TransactionId.of(request.getTransactionId());
+        AuthResponse authResponse = authService.authenticate(new AuthRequest(sessionToken));
+        CustomerId authenticatedId = CustomerId.of(authResponse.getCustomerId());
+
+        BooleanResponse isValidTokenResponse = authService.validateToken(new ValidateTokenRequest(sessionToken));
+        boolean isValidToken = isValidTokenResponse.value();
+        if (authenticatedId == null || !isValidToken) {
+            String failureReason = String.format(
+                    "Token: %s; Validity: %s; User: %s;",
+                    request.getCurrentSessionToken(),
+                    isValidToken,
+                    authenticatedId
+            );
+
+            return TransactionMapper.failureResponse(
+                    null,
+                    failureReason,
+                    OperationStatus.FAILURE
+            );
+        }
+
+        Transaction transaction = transactionRepository.findById(transactionId);
+        AccountId senderAccountId = transaction.getSourceAccount();
+        AccountId receiverAccountId = transaction.getTargetAccount();
+
+        GetAccountDetailsRequest getSenderAccountDetailsRequest = new GetAccountDetailsRequest(
+                sessionToken, senderAccountId.getValue()
+        );
+        AccountResponse senderAccountResponse = accountService.getAccountDetails(getSenderAccountDetailsRequest);
+        GetAccountDetailsRequest getReceiverAccountDetailsRequest = new GetAccountDetailsRequest(
+                sessionToken, receiverAccountId.getValue()
+        );
+        AccountResponse receiverAccountResponse = accountService.getAccountDetails(getReceiverAccountDetailsRequest);
+
+        boolean isOwnedByAccount = senderAccountId.equals(accountId) || receiverAccountId.equals(accountId);
+        boolean isOwnedByCustomer = authenticatedId.equals(CustomerId.of(senderAccountResponse.getCustomerId()))
+                                    || authenticatedId.equals(CustomerId.of(receiverAccountResponse.getCustomerId())
+        );
+        if (!isOwnedByAccount || !isOwnedByCustomer) {
+            String failureReason = String.format(
+                    "accountId: %s; isOwnedByAccount: %s; isOwnedByCustomer: %s;",
+                    request.getAccountId(),
+                    isOwnedByAccount,
+                    isOwnedByCustomer
+            );
+
+            return TransactionMapper.failureResponse(
+                    null,
+                    failureReason,
+                    OperationStatus.FAILURE
+            );
+        }
+
+        TransactionResponse response = TransactionMapper.toResponse(transaction, OperationStatus.SUCCESS);
+
+        return response;
     }
 
     @Override
