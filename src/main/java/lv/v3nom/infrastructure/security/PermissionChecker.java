@@ -21,6 +21,4 @@ public class PermissionChecker {
     public static boolean canChangeAccountStatus(Customer customer) {
         return customer.getRole() == Role.TECHNICAL_ADMINISTRATOR;
     }
-
-    //  TODO
 }
