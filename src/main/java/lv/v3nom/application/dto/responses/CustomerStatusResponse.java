@@ -1,7 +1,5 @@
 package lv.v3nom.application.dto.responses;
 
-import java.math.BigDecimal;
-
 public class CustomerStatusResponse {
     private String status;
     private String operationStatus;
