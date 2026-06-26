@@ -5,7 +5,6 @@ import lv.v3nom.application.dto.requests.*;
 import lv.v3nom.application.dto.responses.*;
 import lv.v3nom.application.service.AuthService;
 import lv.v3nom.application.service.CustomerService;
-import lv.v3nom.domain.security.PasswordHasher;
 import lv.v3nom.domain.value.*;
 import lv.v3nom.infrastructure.idempotency.IdempotencyStore;
 import lv.v3nom.infrastructure.security.TokenProvider;
@@ -45,8 +44,8 @@ public class AuthServiceImpl implements AuthService {
         IdempotencyKey idempotencyKey = IdempotencyKey.of(request.getIdempotencyKey());
         EmailAddress emailAddress = EmailAddress.of(request.getEmail());
 
-        CachedResponse cachedResponse = getCachedResponse(
-                new GetCachedResponseRequest(emailAddress.getValue(), idempotencyKey.getValue())
+        CachedResponse cachedResponse = getCachedResponseFromId(
+                new GetCachedResponseFromIdRequest(emailAddress.getValue(), idempotencyKey.getValue())
         );
         if (cachedResponse != null) {
             LogInResponse logInResponse = gson.fromJson(
@@ -114,8 +113,8 @@ public class AuthServiceImpl implements AuthService {
         AuthResponse authResponse = authenticate(new AuthRequest(sessionToken));
         CustomerId customerId = CustomerId.of(authResponse.getCustomerId());
 
-        CachedResponse cachedResponse = getCachedResponse(
-                new GetCachedResponseRequest(customerId.getValue(), idempotencyKey.getValue())
+        CachedResponse cachedResponse = getCachedResponseFromId(
+                new GetCachedResponseFromIdRequest(customerId.getValue(), idempotencyKey.getValue())
         );
         if (cachedResponse != null) {
             BooleanResponse booleanResponse = gson.fromJson(
@@ -147,7 +146,7 @@ public class AuthServiceImpl implements AuthService {
         return null;
     }
     @Override
-    public CachedResponse getCachedResponse(GetCachedResponseRequest request) {
+    public CachedResponse getCachedResponseFromId(GetCachedResponseFromIdRequest request) {
         String cachedResponseJSON = idempotencyStore.retrieve(
                 CustomerId.of(request.getCustomerId()),
                 IdempotencyKey.of(request.getIdempotencyKey())
@@ -161,9 +160,31 @@ public class AuthServiceImpl implements AuthService {
         );
     }
     @Override
-    public void saveCachedResponse(SaveCachedResponseRequest request) {
+    public CachedResponse getCachedResponseFromEmail(GetCachedResponseFromEmailRequest request) {
+        String cachedResponseJSON = idempotencyStore.retrieve(
+                EmailAddress.of(request.getEmail()),
+                IdempotencyKey.of(request.getIdempotencyKey())
+        );
+        if (cachedResponseJSON == null) {
+            return null;
+        }
+        return new CachedResponse(
+                gson.toJson(cachedResponseJSON),
+                cachedResponseJSON.getClass().getSimpleName()
+        );
+    }
+    @Override
+    public void saveCachedResponseFromId(SaveCachedResponseFromIdRequest request) {
         idempotencyStore.storeRaw(
                 CustomerId.of(request.getCustomerId()),
+                IdempotencyKey.of(request.getIdempotencyKey()),
+                request.getResponseJson()
+        );
+    }
+    @Override
+    public void saveCachedResponseFromEmail(SaveCachedResponseFromEmailRequest request) {
+        idempotencyStore.storeRaw(
+                CustomerId.of(request.getEmail()),
                 IdempotencyKey.of(request.getIdempotencyKey()),
                 request.getResponseJson()
         );
