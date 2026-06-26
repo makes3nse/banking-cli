@@ -1,6 +1,6 @@
 package lv.v3nom.application.dto.requests;
 
-public class SaveCachedResponseRequest {
+public class SaveCachedResponseFromIdRequest {
     private String customerId;
     private String idempotencyKey;
     private String responseJson;
@@ -8,11 +8,11 @@ public class SaveCachedResponseRequest {
     // Basically it's kind of never being used right now, but it's better
     // to have explicit type declaration to be able to validate things
 
-    public SaveCachedResponseRequest() {}
-    public SaveCachedResponseRequest(String customerId,
-                                     String idempotencyKey,
-                                     String responseJson,
-                                     String responseType) {
+    public SaveCachedResponseFromIdRequest() {}
+    public SaveCachedResponseFromIdRequest(String customerId,
+                                           String idempotencyKey,
+                                           String responseJson,
+                                           String responseType) {
 
         this.customerId = customerId;
         this.idempotencyKey = idempotencyKey;
