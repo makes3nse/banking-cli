@@ -1,10 +1,10 @@
 package lv.v3nom.application.dto.requests;
 
-public class GetCachedResponseRequest {
+public class GetCachedResponseFromIdRequest {
     private String customerId;
     private String idempotencyKey;
 
-    public GetCachedResponseRequest(String customerId, String idempotencyKey) {
+    public GetCachedResponseFromIdRequest(String customerId, String idempotencyKey) {
         this.customerId = customerId;
         this.idempotencyKey = idempotencyKey;
     }

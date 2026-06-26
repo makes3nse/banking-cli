@@ -1,5 +1,6 @@
 package lv.v3nom.application.service.impl;
 
+import com.google.gson.Gson;
 import lv.v3nom.application.dto.requests.*;
 import lv.v3nom.application.dto.responses.*;
 import lv.v3nom.application.mapper.CustomerMapper;
@@ -7,10 +8,7 @@ import lv.v3nom.application.service.AuthService;
 import lv.v3nom.application.service.CustomerService;
 import lv.v3nom.domain.model.Customer;
 import lv.v3nom.domain.security.PasswordHasher;
-import lv.v3nom.domain.value.CustomerId;
-import lv.v3nom.domain.value.EmailAddress;
-import lv.v3nom.domain.value.OperationStatus;
-import lv.v3nom.domain.value.Password;
+import lv.v3nom.domain.value.*;
 import lv.v3nom.infrastructure.repository.INMEM.CustomerRepository;
 import lv.v3nom.infrastructure.security.PermissionChecker;
 import lv.v3nom.infrastructure.time.impl.SystemDateTimeProvider;
@@ -19,21 +17,57 @@ public class CustomerServiceImpl implements CustomerService {
     private final CustomerRepository customerRepository;
     private final PasswordHasher passwordHasher;
     private final AuthService authService;
+    private final Gson gson;
 
     public CustomerServiceImpl(CustomerRepository customerRepository,
                                PasswordHasher passwordHasher,
-                               AuthService authService) {
+                               AuthService authService,
+                               Gson gson) {
 
         this.customerRepository = customerRepository;
         this.passwordHasher = passwordHasher;
         this.authService = authService;
+        this.gson = gson;
     }
 
     @Override
     public CustomerResponse register(RegisterCustomerRequest request) {
-        // TODO
-        //  create and save CUSTOMER entity
-        return null;
+        SystemDateTimeProvider time = new SystemDateTimeProvider();
+
+        IdempotencyKey idempotencyKey = IdempotencyKey.of(request.getIdempotencyKey());
+
+        GetCachedResponseFromEmailRequest getCachedResponseFromEmailRequest = new GetCachedResponseFromEmailRequest(
+                request.getEmail(), idempotencyKey.getValue()
+        );
+        CachedResponse cachedResponse = authService.getCachedResponseFromEmail(getCachedResponseFromEmailRequest);
+        if (cachedResponse != null) {
+            CustomerResponse customerResponse = gson.fromJson(
+                    cachedResponse.getResponseJson(),
+                    CustomerResponse.class
+            );
+
+            return customerResponse;
+        }
+
+        Customer customer = Customer.register(
+                request.getName(),
+                request.getEmail(),
+                request.getPhone(),
+                request.getRawPassword(),
+                passwordHasher,
+                time.now()
+        );
+        customerRepository.save(customer);
+        CustomerResponse customerResponse = CustomerMapper.toResponse(customer, OperationStatus.SUCCESS);
+        SaveCachedResponseFromEmailRequest saveCachedResponseFromEmailRequest = new SaveCachedResponseFromEmailRequest(
+                customer.getEmail().getValue(),
+                idempotencyKey.getValue(),
+                gson.toJson(customerResponse),
+                customerResponse.getClass().getSimpleName()
+        );
+        authService.saveCachedResponseFromEmail(saveCachedResponseFromEmailRequest);
+
+        return customerResponse;
     }
     @Override
     public ChangeNameResponse changeName(ChangeNameRequest request) {
