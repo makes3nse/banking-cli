@@ -11,6 +11,8 @@ public interface AuthService {
     BooleanResponse logout(LogOutRequest request);
     BooleanResponse validateToken(ValidateTokenRequest tokenValue);
     AuthResponse authenticate(AuthRequest tokenValue);
-    CachedResponse getCachedResponse(GetCachedResponseRequest request);
-    void saveCachedResponse(SaveCachedResponseRequest request);
+    CachedResponse getCachedResponseFromId(GetCachedResponseFromIdRequest request);
+    CachedResponse getCachedResponseFromEmail(GetCachedResponseFromEmailRequest request);
+    void saveCachedResponseFromId(SaveCachedResponseFromIdRequest request);
+    void saveCachedResponseFromEmail(SaveCachedResponseFromEmailRequest request);
 }
