@@ -44,9 +44,10 @@ public class AuthServiceImpl implements AuthService {
         IdempotencyKey idempotencyKey = IdempotencyKey.of(request.getIdempotencyKey());
         EmailAddress emailAddress = EmailAddress.of(request.getEmail());
 
-        CachedResponse cachedResponse = getCachedResponseFromId(
-                new GetCachedResponseFromIdRequest(emailAddress.getValue(), idempotencyKey.getValue())
+        GetCachedResponseFromEmailRequest getCachedResponseFromEmailRequest = new GetCachedResponseFromEmailRequest(
+                emailAddress.getValue(), idempotencyKey.getValue()
         );
+        CachedResponse cachedResponse = getCachedResponseFromEmail(getCachedResponseFromEmailRequest);
         if (cachedResponse != null) {
             LogInResponse logInResponse = gson.fromJson(
                     cachedResponse.getResponseJson(),
@@ -99,6 +100,14 @@ public class AuthServiceImpl implements AuthService {
                 OperationStatus.SUCCESS.getDescription()
         );
 
+        SaveCachedResponseFromEmailRequest saveCachedResponseFromEmailRequest = new SaveCachedResponseFromEmailRequest(
+                emailAddress.getValue(),
+                idempotencyKey.getValue(),
+                gson.toJson(logInResponse),
+                logInResponse.getClass().getSimpleName()
+        );
+        saveCachedResponseFromEmail(saveCachedResponseFromEmailRequest);
+
         return logInResponse;
     }
     @Override
@@ -111,11 +120,12 @@ public class AuthServiceImpl implements AuthService {
         String sessionToken = request.getCurrentSessionToken();
         IdempotencyKey idempotencyKey = IdempotencyKey.of(request.getIdempotencyKey());
         AuthResponse authResponse = authenticate(new AuthRequest(sessionToken));
-        CustomerId customerId = CustomerId.of(authResponse.getCustomerId());
+        CustomerId authenticatedId = CustomerId.of(authResponse.getCustomerId());
 
-        CachedResponse cachedResponse = getCachedResponseFromId(
-                new GetCachedResponseFromIdRequest(customerId.getValue(), idempotencyKey.getValue())
+        GetCachedResponseFromIdRequest getCachedResponseFromIdRequest = new GetCachedResponseFromIdRequest(
+                authenticatedId.getValue(), idempotencyKey.getValue()
         );
+        CachedResponse cachedResponse = getCachedResponseFromId(getCachedResponseFromIdRequest);
         if (cachedResponse != null) {
             BooleanResponse booleanResponse = gson.fromJson(
                     cachedResponse.getResponseJson(),
@@ -128,6 +138,13 @@ public class AuthServiceImpl implements AuthService {
         tokenStore.invalidate(sessionToken);
 
         BooleanResponse booleanResponse = new BooleanResponse(OperationStatus.SUCCESS.isOperational());
+        SaveCachedResponseFromIdRequest saveCachedResponseFromIdRequest = new SaveCachedResponseFromIdRequest(
+                authenticatedId.getValue(),
+                idempotencyKey.getValue(),
+                gson.toJson(booleanResponse),
+                booleanResponse.getClass().getSimpleName()
+        );
+        saveCachedResponseFromId(saveCachedResponseFromIdRequest);
 
         return booleanResponse;
     }
