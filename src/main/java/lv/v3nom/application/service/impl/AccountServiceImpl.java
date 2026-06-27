@@ -60,8 +60,10 @@ public class AccountServiceImpl implements AccountService {
             return AccountMapper.failureResponse(authenticatedId.toString(), OperationStatus.FAILURE);
         }
 
-        CachedResponse cachedResponse = authService.getCachedResponseFromId(
-                new GetCachedResponseFromIdRequest(authenticatedId.getValue(), idempotencyKey));
+        GetCachedResponseFromIdRequest getCachedResponseFromIdRequest = new GetCachedResponseFromIdRequest(
+                authenticatedId.getValue(), idempotencyKey
+        );
+        CachedResponse cachedResponse = authService.getCachedResponseFromId(getCachedResponseFromIdRequest);
         if (cachedResponse != null) {
             AccountResponse accountResponse = gson.fromJson(
                     cachedResponse.getResponseJson(),
@@ -102,7 +104,7 @@ public class AccountServiceImpl implements AccountService {
                 response.getClass().getSimpleName()
         );
 
-        authService.saveCachedResponse(saveCachedResponseFromIdRequest);
+        authService.saveCachedResponseFromId(saveCachedResponseFromIdRequest);
         // ALSO, CHANGE ALL TRANSACTION_REPOSITORY DIRECT CALLS TO TRANSACTION_SERVICE CALLS,
         //  IMPLEMENT ALL NEEDED INTERACTION IN RESPONSIBLE SERVICE, TALK VIA DTOs
 
@@ -150,9 +152,10 @@ public class AccountServiceImpl implements AccountService {
             return transactionService.getFailureResponse(getFailureTransactionRequest);
         }
 
-        CachedResponse cachedResponse = authService.getCachedResponseFromId(
-                new GetCachedResponseFromIdRequest(authenticatedId.getValue(), request.getIdempotencyKey())
+        GetCachedResponseFromIdRequest getCachedResponseFromIdRequest = new GetCachedResponseFromIdRequest(
+                authenticatedId.getValue(), request.getIdempotencyKey()
         );
+        CachedResponse cachedResponse = authService.getCachedResponseFromId(getCachedResponseFromIdRequest);
         if (cachedResponse != null) {
             TransactionResponse accountResponse = gson.fromJson(
                     cachedResponse.getResponseJson(),
@@ -210,7 +213,7 @@ public class AccountServiceImpl implements AccountService {
 
         );
 
-        authService.saveCachedResponse(saveCachedResponseFromIdRequest);
+        authService.saveCachedResponseFromId(saveCachedResponseFromIdRequest);
 
         return finalTransactionResponse;
     }
@@ -310,7 +313,7 @@ public class AccountServiceImpl implements AccountService {
                 finalTransactionResponse.getClass().getSimpleName()
         );
 
-        authService.saveCachedResponse(saveCachedResponseFromIdRequest);
+        authService.saveCachedResponseFromId(saveCachedResponseFromIdRequest);
 
         return finalTransactionResponse;
     }
@@ -432,7 +435,7 @@ public class AccountServiceImpl implements AccountService {
                 finalTransactionResponse.getClass().getSimpleName()
         );
 
-        authService.saveCachedResponse(saveCachedResponseFromIdRequest);
+        authService.saveCachedResponseFromId(saveCachedResponseFromIdRequest);
 
         return finalTransactionResponse;
     }
@@ -594,7 +597,7 @@ public class AccountServiceImpl implements AccountService {
                 response.getClass().getSimpleName()
         );
 
-        authService.saveCachedResponse(saveCachedResponseFromIdRequest);
+        authService.saveCachedResponseFromId(saveCachedResponseFromIdRequest);
 
         return response;
     }
@@ -671,7 +674,7 @@ public class AccountServiceImpl implements AccountService {
                 response.getClass().getSimpleName()
         );
 
-        authService.saveCachedResponse(saveCachedResponseFromIdRequest);
+        authService.saveCachedResponseFromId(saveCachedResponseFromIdRequest);
 
         return response;
     }
@@ -747,7 +750,7 @@ public class AccountServiceImpl implements AccountService {
                 response.getClass().getSimpleName()
         );
 
-        authService.saveCachedResponse(saveCachedResponseFromIdRequest);
+        authService.saveCachedResponseFromId(saveCachedResponseFromIdRequest);
 
         return response;
     }
