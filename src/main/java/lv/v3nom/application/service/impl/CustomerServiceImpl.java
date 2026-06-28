@@ -71,8 +71,61 @@ public class CustomerServiceImpl implements CustomerService {
     }
     @Override
     public ChangeNameResponse changeName(ChangeNameRequest request) {
-        // TODO
-        return null;
+        String sessionToken = request.getCurrentSessionToken();
+        IdempotencyKey idempotencyKey = IdempotencyKey.of(request.getIdempotencyKey());
+        String nameCurrent = request.getCurrentName();
+        String nameNew = request.getNewName();
+        AuthResponse authResponse = authService.authenticate(new AuthRequest(sessionToken));
+        CustomerId authenticatedId = CustomerId.of(authResponse.getCustomerId());
+
+        BooleanResponse isValidTokenResponse = authService.validateToken(new ValidateTokenRequest(sessionToken));
+        boolean isValidToken = isValidTokenResponse.value();
+        if (authenticatedId == null || !isValidToken) {
+            String failureReason = String.format(
+                    "Token: %s; Validity: %s; User: %s;",
+                    request.getCurrentSessionToken(),
+                    isValidToken,
+                    authenticatedId
+            );
+            ChangeNameResponse changeNameResponse = new ChangeNameResponse(
+                    nameCurrent,
+                    OperationStatus.FAILURE.getValue(),
+                    failureReason
+            );
+
+            return changeNameResponse;
+        }
+
+        GetCachedResponseFromIdRequest getCachedResponseFromIdRequest = new GetCachedResponseFromIdRequest(
+                authenticatedId.getValue(), idempotencyKey.getValue()
+        );
+        CachedResponse cachedResponse = authService.getCachedResponseFromId(getCachedResponseFromIdRequest);
+        if (cachedResponse != null) {
+            ChangeNameResponse changeNameResponse = gson.fromJson(
+                    cachedResponse.getResponseJson(), ChangeNameResponse.class
+            );
+
+            return changeNameResponse;
+        }
+
+        Customer customer = customerRepository.findById(authenticatedId);
+        customer.changeName(nameNew);
+        customerRepository.save(customer);
+
+        ChangeNameResponse changeNameResponse = new ChangeNameResponse(
+                nameNew,
+                OperationStatus.SUCCESS.getValue(),
+                OperationStatus.SUCCESS.getDescription()
+        );
+        SaveCachedResponseFromIdRequest saveCachedResponseFromIdRequest = new SaveCachedResponseFromIdRequest(
+                authenticatedId.getValue(),
+                idempotencyKey.getValue(),
+                gson.toJson(changeNameResponse),
+                changeNameResponse.getClass().getSimpleName()
+        );
+        authService.saveCachedResponseFromId(saveCachedResponseFromIdRequest);
+
+        return changeNameResponse;
     }
     @Override
     public ChangeEmailResponse changeEmail(ChangeEmailRequest request) {
