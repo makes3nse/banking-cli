@@ -129,7 +129,58 @@ public class CustomerServiceImpl implements CustomerService {
     }
     @Override
     public ChangeEmailResponse changeEmail(ChangeEmailRequest request) {
-        // TODO
+        String sessionToken = request.getCurrentSessionToken();
+        IdempotencyKey idempotencyKey = IdempotencyKey.of(request.getIdempotencyKey());
+        EmailAddress emailCurrent = EmailAddress.of(request.getCurrentEmail());
+        EmailAddress emailNew = EmailAddress.of(request.getNewEmail());
+        AuthResponse authResponse = authService.authenticate(new AuthRequest(sessionToken));
+        CustomerId authenticatedId = CustomerId.of(authResponse.getCustomerId());
+
+        BooleanResponse isValidTokenResponse = authService.validateToken(new ValidateTokenRequest(sessionToken));
+        boolean isValidToken = isValidTokenResponse.value();
+        if (authenticatedId == null || !isValidToken) {
+            String failureReason = String.format(
+                    "Token: %s; Validity: %s; User: %s;",
+                    request.getCurrentSessionToken(),
+                    isValidToken,
+                    authenticatedId
+            );
+            ChangeEmailResponse changeEmailResponse = new ChangeEmailResponse(
+                    emailCurrent.getValue(),
+                    OperationStatus.FAILURE.getValue(),
+                    failureReason
+            );
+
+            return changeEmailResponse;
+        }
+
+        GetCachedResponseFromIdRequest getCachedResponseFromIdRequest = new GetCachedResponseFromIdRequest(
+                authenticatedId.getValue(), idempotencyKey.getValue()
+        );
+        CachedResponse cachedResponse = authService.getCachedResponseFromId(getCachedResponseFromIdRequest);
+        if (cachedResponse != null) {
+            ChangeEmailResponse changeEmailResponse = gson.fromJson(
+                    cachedResponse.getResponseJson(), ChangeEmailResponse.class
+            );
+
+            return changeEmailResponse;
+        }
+
+        Customer customer = customerRepository.findById(authenticatedId);
+        customer.changeEmail(emailNew);
+        customerRepository.save(customer);
+
+        ChangeEmailResponse changeEmailResponse = new ChangeEmailResponse(
+                emailNew.getValue(), OperationStatus.SUCCESS.getValue(), OperationStatus.SUCCESS.getDescription()
+        );
+        SaveCachedResponseFromIdRequest saveCachedResponseFromIdRequest = new SaveCachedResponseFromIdRequest(
+                authenticatedId.getValue(),
+                idempotencyKey.getValue(),
+                gson.toJson(changeEmailResponse),
+                changeEmailResponse.getClass().getSimpleName()
+        );
+        authService.saveCachedResponseFromId(saveCachedResponseFromIdRequest);
+
         return null;
     }
     @Override
