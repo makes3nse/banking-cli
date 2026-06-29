@@ -185,8 +185,59 @@ public class CustomerServiceImpl implements CustomerService {
     }
     @Override
     public ChangePasswordResponse changePassword(ChangePasswordRequest request) {
-        // TODO
-        return null;
+        String sessionToken = request.getCurrentSessionToken();
+        IdempotencyKey idempotencyKey = IdempotencyKey.of(request.getIdempotencyKey());
+        String passwordRawCurrent = request.getCurrentPassword();
+        String passwordRawNew = request.getNewPassword();
+        AuthResponse authResponse = authService.authenticate(new AuthRequest(sessionToken));
+        CustomerId authenticatedId = CustomerId.of(authResponse.getCustomerId());
+
+        BooleanResponse isValidTokenResponse = authService.validateToken(new ValidateTokenRequest(sessionToken));
+        boolean isValidToken = isValidTokenResponse.value();
+        if (authenticatedId == null || !isValidToken) {
+            String failureReason = String.format(
+                    "Token: %s; Validity: %s; User: %s;",
+                    request.getCurrentSessionToken(),
+                    isValidToken,
+                    authenticatedId
+            );
+            ChangePasswordResponse changePasswordResponse = new ChangePasswordResponse(
+                    OperationStatus.FAILURE.getValue(),
+                    failureReason
+            );
+
+            return changePasswordResponse;
+        }
+
+        GetCachedResponseFromIdRequest getCachedResponseFromIdRequest = new GetCachedResponseFromIdRequest(
+                authenticatedId.getValue(), idempotencyKey.getValue()
+        );
+        CachedResponse cachedResponse = authService.getCachedResponseFromId(getCachedResponseFromIdRequest);
+        if (cachedResponse != null) {
+            ChangePasswordResponse changePasswordResponse = gson.fromJson(
+                    cachedResponse.getResponseJson(),
+                    ChangePasswordResponse.class
+            );
+
+            return changePasswordResponse;
+        }
+
+        Customer customer = customerRepository.findById(authenticatedId);
+        customer.changePassword(passwordRawCurrent, passwordRawNew, passwordHasher);
+        customerRepository.save(customer);
+
+        ChangePasswordResponse changePasswordResponse = new ChangePasswordResponse(
+                OperationStatus.SUCCESS.getValue(), OperationStatus.SUCCESS.getDescription()
+        );
+        SaveCachedResponseFromIdRequest saveCachedResponseFromIdRequest = new SaveCachedResponseFromIdRequest(
+                authenticatedId.getValue(),
+                idempotencyKey.getValue(),
+                gson.toJson(changePasswordResponse),
+                changePasswordResponse.getClass().getSimpleName()
+        );
+        authService.saveCachedResponseFromId(saveCachedResponseFromIdRequest);
+
+        return changePasswordResponse;
     }
     @Override
     public ChangePhoneNumberResponse changePhone(ChangePhoneNumberRequest request) {
