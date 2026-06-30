@@ -241,8 +241,59 @@ public class CustomerServiceImpl implements CustomerService {
     }
     @Override
     public ChangePhoneNumberResponse changePhone(ChangePhoneNumberRequest request) {
-        // TODO
-        return null;
+        String sessionToken = request.getCurrentSessionToken();
+        IdempotencyKey idempotencyKey = IdempotencyKey.of(request.getIdempotencyKey());
+        PhoneNumber phoneNumberCurrent = PhoneNumber.of(request.getCurrentPhone());
+        PhoneNumber phoneNumberNew = PhoneNumber.of(request.getNewPhone());
+        AuthResponse authResponse = authService.authenticate(new AuthRequest(sessionToken));
+        CustomerId authenticatedId = CustomerId.of(authResponse.getCustomerId());
+
+        BooleanResponse isValidTokenResponse = authService.validateToken(new ValidateTokenRequest(sessionToken));
+        boolean isValidToken = isValidTokenResponse.value();
+        if (authenticatedId == null || !isValidToken) {
+            String failureReason = String.format(
+                    "Token: %s; Validity: %s; User: %s;",
+                    request.getCurrentSessionToken(),
+                    isValidToken,
+                    authenticatedId
+            );
+            ChangePhoneNumberResponse changePhoneNumberResponse = new ChangePhoneNumberResponse(
+                    phoneNumberCurrent.getValue(),
+                    OperationStatus.FAILURE.getValue(),
+                    failureReason
+            );
+
+            return changePhoneNumberResponse;
+        }
+
+        GetCachedResponseFromIdRequest getCachedResponseFromIdRequest = new GetCachedResponseFromIdRequest(
+                authenticatedId.getValue(), idempotencyKey.getValue()
+        );
+        CachedResponse cachedResponse = authService.getCachedResponseFromId(getCachedResponseFromIdRequest);
+        if (cachedResponse != null) {
+            ChangePhoneNumberResponse changePhoneNumberResponse = gson.fromJson(
+                    cachedResponse.getResponseJson(), ChangePhoneNumberResponse.class
+            );
+
+            return changePhoneNumberResponse;
+        }
+
+        Customer customer = customerRepository.findById(authenticatedId);
+        customer.changePhoneNumber(phoneNumberNew);
+        customerRepository.save(customer);
+
+        ChangePhoneNumberResponse changePhoneNumberResponse = new ChangePhoneNumberResponse(
+                phoneNumberNew.getValue(), OperationStatus.SUCCESS.getValue(), OperationStatus.SUCCESS.getDescription()
+        );
+        SaveCachedResponseFromIdRequest saveCachedResponseFromIdRequest = new SaveCachedResponseFromIdRequest(
+                authenticatedId.getValue(),
+                idempotencyKey.getValue(),
+                gson.toJson(changePhoneNumberResponse),
+                changePhoneNumberResponse.getClass().getSimpleName()
+        );
+        authService.saveCachedResponseFromId(saveCachedResponseFromIdRequest);
+
+        return changePhoneNumberResponse;
     }
     @Override
     public CustomerResponse getCustomer(GetCustomerRequest request) {
