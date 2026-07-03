@@ -17,4 +17,17 @@ public class SessionManagerImpl {
         }
         this.currentToken = token;
     }
+    public String getToken() {
+        if (currentToken != null) return currentToken;
+        if (Files.exists(sessionFile)) {
+            try {
+                currentToken = Files.readString(sessionFile).trim();
+                return currentToken;
+            } catch (IOException e) {
+                currentToken = null;
+                throw new RuntimeException(e);
+            }
+        }
+        return null;
+    }
 }
