@@ -30,4 +30,12 @@ public class SessionManagerImpl {
         }
         return null;
     }
+    public void clearSession() {
+        try {
+            Files.deleteIfExists(sessionFile);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+        currentToken = null;
+    }
 }
