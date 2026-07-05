@@ -1,13 +1,22 @@
 package lv.v3nom.cli.impl;
 
+import lv.v3nom.application.dto.requests.ValidateTokenRequest;
+import lv.v3nom.application.dto.responses.BooleanResponse;
+import lv.v3nom.application.service.AuthService;
+
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
 public class SessionManagerImpl {
+    private final AuthService authService;
     private final Path sessionFile = Paths.get(System.getProperty("user.dir"), ".session");
     private String currentToken;
+
+    public SessionManagerImpl(AuthService authService) {
+        this.authService = authService;
+    }
 
     public void saveToken(String token) {
         try {
@@ -37,5 +46,13 @@ public class SessionManagerImpl {
             throw new RuntimeException(e);
         }
         currentToken = null;
+    }
+    public boolean isLoggedIn() {
+        String token = getToken();
+        if (token == null) return false;
+        BooleanResponse isValidToken = authService.validateToken(
+                new ValidateTokenRequest(token)
+        );
+        return isValidToken.value();
     }
 }
