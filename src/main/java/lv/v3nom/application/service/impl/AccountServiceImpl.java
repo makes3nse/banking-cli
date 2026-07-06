@@ -8,6 +8,7 @@ import lv.v3nom.application.service.AccountService;
 import lv.v3nom.application.service.AuthService;
 import lv.v3nom.application.service.CustomerService;
 import lv.v3nom.application.service.TransactionService;
+import lv.v3nom.domain.exception.AccountNotFoundException;
 import lv.v3nom.domain.model.Account;
 import lv.v3nom.domain.value.*;
 import lv.v3nom.infrastructure.repository.INMEM.AccountRepository;
@@ -85,30 +86,41 @@ public class AccountServiceImpl implements AccountService {
         // WE DON'T NEED FULL CUSTOMER_ENTITY AS IT HAS PASSWORDS AND ALL THAT SHIT INSIDE,
         //  SO WE JUST NEED TO GET A GENERAL-PURPOSE CUSTOMER_RESPONSE WITHOUT SENSITIVE DATA,
         //  WE CAN RETRIEVE ALL NEEDED DATA FROM CUSTOMER_RESPONSE, SUCH AS _STATUS, _ID ETC.
-        Account account = Account.open(
-                authenticatedId,
-                currency,
-                CustomerStatus.of(customerResponse.getStatus()),
-                time.now()
-        );
-        // CHANGE ALL IDEMPOTENCY MECHANISMS IN THIS SERVICE AND ALL OTHER SERVICES,
-        //  SO THEY STORE AND RETRIEVE JSON STRINGS AND SERIALIZE AND DESERIALIZE THEM WHEN NEEDED USING GSON.
-        accountRepository.save(account);
+        try {
+            Account account = Account.open(
+                    authenticatedId,
+                    currency,
+                    CustomerStatus.of(customerResponse.getStatus()),
+                    time.now()
+            );
+            // CHANGE ALL IDEMPOTENCY MECHANISMS IN THIS SERVICE AND ALL OTHER SERVICES,
+            //  SO THEY STORE AND RETRIEVE JSON STRINGS AND SERIALIZE AND DESERIALIZE THEM WHEN NEEDED USING GSON.
+            accountRepository.save(account);
 
-        AccountResponse response = AccountMapper.toResponse(account, OperationStatus.SUCCESS);
+            AccountResponse response = AccountMapper.toResponse(account, OperationStatus.SUCCESS);
 
-        SaveCachedResponseFromIdRequest saveCachedResponseFromIdRequest = new SaveCachedResponseFromIdRequest(
-                authenticatedId.getValue(),
-                request.getIdempotencyKey(),
-                gson.toJson(response),
-                response.getClass().getSimpleName()
-        );
+            SaveCachedResponseFromIdRequest saveCachedResponseFromIdRequest = new SaveCachedResponseFromIdRequest(
+                    authenticatedId.getValue(),
+                    request.getIdempotencyKey(),
+                    gson.toJson(response),
+                    response.getClass().getSimpleName()
+            );
 
-        authService.saveCachedResponseFromId(saveCachedResponseFromIdRequest);
-        // ALSO, CHANGE ALL TRANSACTION_REPOSITORY DIRECT CALLS TO TRANSACTION_SERVICE CALLS,
-        //  IMPLEMENT ALL NEEDED INTERACTION IN RESPONSIBLE SERVICE, TALK VIA DTOs
+            authService.saveCachedResponseFromId(saveCachedResponseFromIdRequest);
+            // ALSO, CHANGE ALL TRANSACTION_REPOSITORY DIRECT CALLS TO TRANSACTION_SERVICE CALLS,
+            //  IMPLEMENT ALL NEEDED INTERACTION IN RESPONSIBLE SERVICE, TALK VIA DTOs
 
-        return response;
+            return response;
+
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            OperationStatus operationStatus = OperationStatus.of(
+                    "FAILURE",
+                    false,
+                    false,
+                    e.getMessage()
+            );
+            return AccountMapper.failureResponse(authenticatedId.getValue(), operationStatus);
+        }
     }
     @Override
     public TransactionResponse deposit(DepositRequest request) {
@@ -164,63 +176,76 @@ public class AccountServiceImpl implements AccountService {
             return accountResponse;
         }
 
-        Account account = accountRepository.findById(accountId);
+        try {
+            Account account = accountRepository.findById(accountId);
 
-        boolean isExistingAccount = account != null;
-        boolean isOwnedByAuthenticatedCustomer = account.getOwnerId().equals(authenticatedId);
-        if (!isExistingAccount || !isOwnedByAuthenticatedCustomer) {
-            String failureReason = String.format(
-                    "Account: %s; Owned: %; Exists: %s; User: %s;",
-                    request.getAccountId(),
-                    isOwnedByAuthenticatedCustomer,
-                    isExistingAccount,
-                    authenticatedId
-            );
-            GetFailureTransactionRequest getFailureTransactionRequest = new GetFailureTransactionRequest(
+            boolean isOwnedByAuthenticatedCustomer = account.getOwnerId().equals(authenticatedId);
+            if (!isOwnedByAuthenticatedCustomer) {
+                String failureReason = String.format(
+                        "Account: %s; Owned: %; User: %s;",
+                        request.getAccountId(),
+                        isOwnedByAuthenticatedCustomer,
+                        authenticatedId
+                );
+                GetFailureTransactionRequest getFailureTransactionRequest = new GetFailureTransactionRequest(
+                        transactionType.getTransactionName(),
+                        failureReason,
+                        OperationStatus.FAILURE.getValue()
+                );
+
+                return transactionService.getFailureResponse(getFailureTransactionRequest);
+            }
+            CreateTransactionRequest createPendingDepositTransactionRequest = new CreateTransactionRequest(
                     transactionType.getTransactionName(),
-                    failureReason,
-                    OperationStatus.FAILURE.getValue()
+                    transactionId.getValue(),
+                    amount.getValue(),
+                    amount.getCurrency().value(),
+                    time.now().toString(),
+                    accountId.getValue(),
+                    accountId.getValue()
+            );
+            TransactionResponse pendingTransactionResponse =
+                    transactionService.createDepositTransaction(createPendingDepositTransactionRequest);
+
+            account.deposit(amount, time.now());
+            accountRepository.save(account);
+
+            CompleteTransactionRequest completeTransactionRequest = new CompleteTransactionRequest(
+                    pendingTransactionResponse.getTransactionId(), time.now().toString()
+            );
+            TransactionResponse finalTransactionResponse = transactionService.completeTransaction(
+                    completeTransactionRequest
+            );
+            SaveCachedResponseFromIdRequest saveCachedResponseFromIdRequest = new SaveCachedResponseFromIdRequest(
+                    authenticatedId.getValue(),
+                    request.getIdempotencyKey(),
+                    gson.toJson(finalTransactionResponse, TransactionResponse.class),
+                    finalTransactionResponse.getClass().getSimpleName()
+
+            );
+
+            authService.saveCachedResponseFromId(saveCachedResponseFromIdRequest);
+
+            return finalTransactionResponse;
+
+        } catch (IllegalArgumentException | IllegalStateException | AccountNotFoundException e) {
+            OperationStatus operationStatus = OperationStatus.of(
+                    "FAILURE",
+                    false,
+                    false,
+                    e.getMessage()
+            );
+            GetFailureTransactionRequest  getFailureTransactionRequest = new GetFailureTransactionRequest(
+                    TransactionType.DEPOSIT.getTransactionName(),
+                    operationStatus.getDescription(),
+                    operationStatus.getValue()
             );
 
             return transactionService.getFailureResponse(getFailureTransactionRequest);
         }
-        CreateTransactionRequest createPendingDepositTransactionRequest = new CreateTransactionRequest(
-                transactionType.getTransactionName(),
-                transactionId.getValue(),
-                amount.getValue(),
-                amount.getCurrency().value(),
-                time.now().toString(),
-                accountId.getValue(),
-                accountId.getValue()
-        );
-        TransactionResponse pendingTransactionResponse =
-                transactionService.createDepositTransaction(createPendingDepositTransactionRequest);
-
-        account.deposit(amount, time.now());
-        accountRepository.save(account);
-
-        CompleteTransactionRequest completeTransactionRequest = new CompleteTransactionRequest(
-                transactionId.getValue(), time.now().toString()
-        );
-        TransactionResponse finalTransactionResponse = transactionService.completeTransaction(
-                completeTransactionRequest
-        );
-        SaveCachedResponseFromIdRequest saveCachedResponseFromIdRequest = new SaveCachedResponseFromIdRequest(
-                authenticatedId.getValue(),
-                request.getIdempotencyKey(),
-                gson.toJson(finalTransactionResponse, TransactionResponse.class),
-                finalTransactionResponse.getClass().getSimpleName()
-
-        );
-
-        authService.saveCachedResponseFromId(saveCachedResponseFromIdRequest);
-
-        return finalTransactionResponse;
     }
     @Override
     public TransactionResponse withdraw(WithdrawRequest request) {
-        //      withdraw, same as deposit, but check sufficient balance
-
         SystemDateTimeProvider time = new SystemDateTimeProvider();
 
         TransactionType transactionType = TransactionType.WITHDRAW;
@@ -265,57 +290,72 @@ public class AccountServiceImpl implements AccountService {
             return transactionResponse;
         }
 
-        Account account = accountRepository.findById(accountId);
+        try {
+            Account account = accountRepository.findById(accountId);
 
-        boolean isExistingAccount = account != null;
-        boolean isOwnedByAuthenticatedCustomer = account.getOwnerId().equals(authenticatedId);
-        if (!isExistingAccount || !isOwnedByAuthenticatedCustomer) {
-            String failureReason = String.format(
-                    "Account: %s; Owned: %; Exists: %s; User: %s;",
-                    request.getAccountId(),
-                    isOwnedByAuthenticatedCustomer,
-                    isExistingAccount,
-                    authenticatedId
-            );
-            GetFailureTransactionRequest getFailureTransactionRequest = new GetFailureTransactionRequest(
+            boolean isOwnedByAuthenticatedCustomer = account.getOwnerId().equals(authenticatedId);
+            if (!isOwnedByAuthenticatedCustomer) {
+                String failureReason = String.format(
+                        "Account: %s; Owned: %; User: %s;",
+                        request.getAccountId(),
+                        isOwnedByAuthenticatedCustomer,
+                        authenticatedId
+                );
+                GetFailureTransactionRequest getFailureTransactionRequest = new GetFailureTransactionRequest(
+                        transactionType.getTransactionName(),
+                        failureReason,
+                        OperationStatus.FAILURE.getValue()
+                );
+
+                return transactionService.getFailureResponse(getFailureTransactionRequest);
+            }
+
+            CreateTransactionRequest createPendingWithdrawTransactionRequest = new CreateTransactionRequest(
                     transactionType.getTransactionName(),
-                    failureReason,
-                    OperationStatus.FAILURE.getValue()
+                    transactionId.getValue(),
+                    amount.getValue(),
+                    amount.getCurrency().value(),
+                    time.now().toString(),
+                    accountId.getValue(),
+                    accountId.getValue()
+            );
+            TransactionResponse pendingTransactionResponse =
+                    transactionService.createWithdrawTransaction(createPendingWithdrawTransactionRequest);
+
+            account.withdraw(amount, time.now());
+            accountRepository.save(account);
+
+            CompleteTransactionRequest completeTransactionRequest = new CompleteTransactionRequest(
+                            pendingTransactionResponse.getTransactionId(), time.now().toString()
+            );
+            TransactionResponse finalTransactionResponse =
+                    transactionService.completeTransaction(completeTransactionRequest);
+            SaveCachedResponseFromIdRequest saveCachedResponseFromIdRequest = new SaveCachedResponseFromIdRequest(
+                    authenticatedId.getValue(),
+                    idempotencyKey.getValue(),
+                    gson.toJson(finalTransactionResponse),
+                    finalTransactionResponse.getClass().getSimpleName()
+            );
+
+            authService.saveCachedResponseFromId(saveCachedResponseFromIdRequest);
+
+            return finalTransactionResponse;
+
+        } catch (IllegalArgumentException | IllegalStateException | AccountNotFoundException e) {
+            OperationStatus operationStatus = OperationStatus.of(
+                    "FAILURE",
+                    false,
+                    false,
+                    e.getMessage()
+            );
+            GetFailureTransactionRequest  getFailureTransactionRequest = new GetFailureTransactionRequest(
+                    TransactionType.WITHDRAW.getTransactionName(),
+                    operationStatus.getDescription(),
+                    operationStatus.getValue()
             );
 
             return transactionService.getFailureResponse(getFailureTransactionRequest);
         }
-
-        CreateTransactionRequest createPendingWithdrawTransactionRequest = new CreateTransactionRequest(
-                transactionType.getTransactionName(),
-                transactionId.getValue(),
-                amount.getValue(),
-                amount.getCurrency().value(),
-                time.now().toString(),
-                accountId.getValue(),
-                accountId.getValue()
-        );
-        TransactionResponse pendingTransactionResponse =
-                transactionService.createWithdrawTransaction(createPendingWithdrawTransactionRequest);
-
-        account.withdraw(amount, time.now());
-        accountRepository.save(account);
-
-        CompleteTransactionRequest completeTransactionRequest = new CompleteTransactionRequest(
-                        transactionId.getValue(), time.now().toString()
-        );
-        TransactionResponse finalTransactionResponse =
-                transactionService.completeTransaction(completeTransactionRequest);
-        SaveCachedResponseFromIdRequest saveCachedResponseFromIdRequest = new SaveCachedResponseFromIdRequest(
-                authenticatedId.getValue(),
-                idempotencyKey.getValue(),
-                gson.toJson(finalTransactionResponse),
-                finalTransactionResponse.getClass().getSimpleName()
-        );
-
-        authService.saveCachedResponseFromId(saveCachedResponseFromIdRequest);
-
-        return finalTransactionResponse;
     }
     @Override
     public TransactionResponse transfer(TransferRequest request) {
@@ -372,72 +412,74 @@ public class AccountServiceImpl implements AccountService {
             return transactionResponse;
         }
 
-        Account sourceAccount = accountRepository.findById(sourceAccountId);
-        boolean isExistingSourceAccount = sourceAccount != null;
-        boolean isOwnedByAuthenticatedCustomer = sourceAccount.getOwnerId().equals(authenticatedId);
-        if (!isExistingSourceAccount || !isOwnedByAuthenticatedCustomer) {
-            String failureReason = String.format(
-                    "Account: %s; Owned: %; Exists: %s; User: %s;",
-                    request.getSourceAccountId(),
-                    isOwnedByAuthenticatedCustomer,
-                    isExistingSourceAccount,
-                    authenticatedId
+        try {
+            Account sourceAccount = accountRepository.findById(sourceAccountId);
+
+            boolean isOwnedByAuthenticatedCustomer = sourceAccount.getOwnerId().equals(authenticatedId);
+            if (!isOwnedByAuthenticatedCustomer) {
+                String failureReason = String.format(
+                        "Account: %s; Owned: %; User: %s;",
+                        request.getSourceAccountId(),
+                        isOwnedByAuthenticatedCustomer,
+                        authenticatedId
+                );
+                GetFailureTransactionRequest getFailureTransactionRequest = new GetFailureTransactionRequest(
+                        transactionType.getTransactionName(), failureReason, OperationStatus.FAILURE.getValue()
+                );
+
+                return transactionService.getFailureResponse(getFailureTransactionRequest);
+            }
+
+            Account targetAccount = accountRepository.findById(targetAccountId);
+
+            CreateTransactionRequest createPendingTransferTransactionRequest = new CreateTransactionRequest(
+                    transactionType.getTransactionName(),
+                    transactionId.getValue(),
+                    amount.getValue(),
+                    amount.getCurrency().value(),
+                    time.now().toString(),
+                    sourceAccountId.getValue(),
+                    targetAccountId.getValue()
             );
-            GetFailureTransactionRequest getFailureTransactionRequest = new GetFailureTransactionRequest(
-                    transactionType.getTransactionName(), failureReason, OperationStatus.FAILURE.getValue()
+            TransactionResponse pendingTransactionResponse = transactionService.createTransferTransaction(
+                    createPendingTransferTransactionRequest
+            );
+
+            sourceAccount.transferToAccount(targetAccount, amount, time.now());
+            accountRepository.save(sourceAccount);
+            accountRepository.save(targetAccount);
+
+            CompleteTransactionRequest completeTransactionRequest = new CompleteTransactionRequest(
+                    pendingTransactionResponse.getTransactionId(), time.now().toString()
+            );
+            TransactionResponse finalTransactionResponse =
+                    transactionService.completeTransaction(completeTransactionRequest);
+            SaveCachedResponseFromIdRequest saveCachedResponseFromIdRequest = new SaveCachedResponseFromIdRequest(
+                    authenticatedId.getValue(),
+                    idempotencyKey.getValue(),
+                    gson.toJson(finalTransactionResponse),
+                    finalTransactionResponse.getClass().getSimpleName()
+            );
+
+            authService.saveCachedResponseFromId(saveCachedResponseFromIdRequest);
+
+            return finalTransactionResponse;
+
+        } catch (IllegalArgumentException | IllegalStateException | AccountNotFoundException e) {
+            OperationStatus operationStatus = OperationStatus.of(
+                    "FAILURE",
+                    false,
+                    false,
+                    e.getMessage()
+            );
+            GetFailureTransactionRequest  getFailureTransactionRequest = new GetFailureTransactionRequest(
+                    TransactionType.WITHDRAW.getTransactionName(),
+                    operationStatus.getDescription(),
+                    operationStatus.getValue()
             );
 
             return transactionService.getFailureResponse(getFailureTransactionRequest);
         }
-
-        Account targetAccount = accountRepository.findById(targetAccountId);
-        boolean isExistingTargetAccount = targetAccount != null;
-        if (!isExistingTargetAccount) {
-            String failureReason = String.format(
-                    "Account: %s; Exists: %s; User: %s;",
-                    request.getSourceAccountId(),
-                    isExistingTargetAccount,
-                    authenticatedId
-            );
-            GetFailureTransactionRequest getFailureTransactionRequest = new GetFailureTransactionRequest(
-                    transactionType.getTransactionName(), failureReason, OperationStatus.FAILURE.getValue()
-            );
-
-            return transactionService.getFailureResponse(getFailureTransactionRequest);
-        }
-
-        CreateTransactionRequest createPendingTransferTransactionRequest = new CreateTransactionRequest(
-                transactionType.getTransactionName(),
-                transactionId.getValue(),
-                amount.getValue(),
-                amount.getCurrency().value(),
-                time.now().toString(),
-                sourceAccountId.getValue(),
-                targetAccountId.getValue()
-        );
-        TransactionResponse pendingTransactionResponse = transactionService.createTransferTransaction(
-                createPendingTransferTransactionRequest
-        );
-
-        sourceAccount.transferToAccount(targetAccount, amount, time.now());
-        accountRepository.save(sourceAccount);
-        accountRepository.save(targetAccount);
-
-        CompleteTransactionRequest completeTransactionRequest = new CompleteTransactionRequest(
-                transactionId.getValue(), time.now().toString()
-        );
-        TransactionResponse finalTransactionResponse =
-                transactionService.completeTransaction(completeTransactionRequest);
-        SaveCachedResponseFromIdRequest saveCachedResponseFromIdRequest = new SaveCachedResponseFromIdRequest(
-                authenticatedId.getValue(),
-                idempotencyKey.getValue(),
-                gson.toJson(finalTransactionResponse),
-                finalTransactionResponse.getClass().getSimpleName()
-        );
-
-        authService.saveCachedResponseFromId(saveCachedResponseFromIdRequest);
-
-        return finalTransactionResponse;
     }
     @Override
     public BalanceResponse getBalance(ViewBalanceRequest request) {
@@ -466,24 +508,37 @@ public class AccountServiceImpl implements AccountService {
             return AccountMapper.failureResponseBalance(failureReason, OperationStatus.FAILURE);
         }
 
-        Account account = accountRepository.findById(accountId);
-        boolean isOwnedByAuthenticatedCustomer = account.getOwnerId().equals(authenticatedId);
-        boolean isExistingAccount = account != null;
-        if (!isExistingAccount || !isOwnedByAuthenticatedCustomer) {
-            String failureReason = String.format(
-                    "Account: %s; Owned: %; Exists: %s; User: %s;",
-                    request.getAccountId(),
-                    isOwnedByAuthenticatedCustomer,
-                    isExistingAccount,
-                    authenticatedId
+        try {
+            Account account = accountRepository.findById(accountId);
+
+            boolean isOwnedByAuthenticatedCustomer = account.getOwnerId().equals(authenticatedId);
+            boolean isExistingAccount = account != null;
+            if (!isExistingAccount || !isOwnedByAuthenticatedCustomer) {
+                String failureReason = String.format(
+                        "Account: %s; Owned: %; Exists: %s; User: %s;",
+                        request.getAccountId(),
+                        isOwnedByAuthenticatedCustomer,
+                        isExistingAccount,
+                        authenticatedId
+                );
+
+                return AccountMapper.failureResponseBalance(failureReason, OperationStatus.FAILURE);
+            }
+
+            BalanceResponse balanceResponse = AccountMapper.toBalanceResponse(account, OperationStatus.SUCCESS);
+
+            return balanceResponse;
+
+        } catch (AccountNotFoundException e) {
+            OperationStatus operationStatus = OperationStatus.of(
+                    "FAILURE",
+                    false,
+                    false,
+                    e.getMessage()
             );
 
-            return AccountMapper.failureResponseBalance(failureReason, OperationStatus.FAILURE);
+            return AccountMapper.failureResponseBalance(operationStatus.getDescription(), operationStatus);
         }
-
-        BalanceResponse balanceResponse = AccountMapper.toBalanceResponse(account, OperationStatus.SUCCESS);
-
-        return balanceResponse;
     }
     @Override
     public List<AccountResponse> getAccountsByCustomer(GetAccountsRequest request) {
@@ -563,43 +618,61 @@ public class AccountServiceImpl implements AccountService {
             return accountStatusResponse;
         }
 
-        Account account = accountRepository.findById(accountId);
-        boolean isExistingAccount = account != null;
-        boolean isOwnedByAuthenticatedCustomer = account.getOwnerId().equals(authenticatedId);
-        if (!isExistingAccount || !isOwnedByAuthenticatedCustomer) {
-            String failureReason = String.format(
-                    "Account: %s; Owned: %; Exists: %s; User: %s;",
-                    request.getAccountId(),
-                    isOwnedByAuthenticatedCustomer,
-                    isExistingAccount,
-                    authenticatedId
+        try {
+            Account account = accountRepository.findById(accountId);
+
+            boolean isExistingAccount = account != null;
+            boolean isOwnedByAuthenticatedCustomer = account.getOwnerId().equals(authenticatedId);
+            if (!isExistingAccount || !isOwnedByAuthenticatedCustomer) {
+                String failureReason = String.format(
+                        "Account: %s; Owned: %; Exists: %s; User: %s;",
+                        request.getAccountId(),
+                        isOwnedByAuthenticatedCustomer,
+                        isExistingAccount,
+                        authenticatedId
+                );
+
+                return new AccountStatusResponse(
+                        null,
+                        OperationStatus.FAILURE.getValue(),
+                        failureReason
+                );
+            }
+
+            account.close(time.now());
+            accountRepository.save(account);
+
+            AccountStatusResponse response = new AccountStatusResponse(
+                    account.getAccountStatus().getValue(),
+                    OperationStatus.SUCCESS.getValue(),
+                    null
+            );
+            SaveCachedResponseFromIdRequest saveCachedResponseFromIdRequest = new SaveCachedResponseFromIdRequest(
+                    authenticatedId.getValue(),
+                    idempotencyKey.getValue(),
+                    gson.toJson(response),
+                    response.getClass().getSimpleName()
             );
 
-            return new AccountStatusResponse(
+            authService.saveCachedResponseFromId(saveCachedResponseFromIdRequest);
+
+            return response;
+
+        } catch (IllegalStateException | AccountNotFoundException e) {
+            OperationStatus operationStatus = OperationStatus.of(
+                    "FAILURE",
+                    false,
+                    false,
+                    e.getMessage()
+            );
+            AccountStatusResponse accountStatusResponse = new AccountStatusResponse(
                     null,
-                    OperationStatus.FAILURE.getValue(),
-                    failureReason
+                    operationStatus.getValue(),
+                    operationStatus.getDescription()
             );
+
+            return accountStatusResponse;
         }
-
-        account.close(time.now());
-        accountRepository.save(account);
-
-        AccountStatusResponse response = new AccountStatusResponse(
-                account.getAccountStatus().getValue(),
-                OperationStatus.SUCCESS.getValue(),
-                null
-        );
-        SaveCachedResponseFromIdRequest saveCachedResponseFromIdRequest = new SaveCachedResponseFromIdRequest(
-                authenticatedId.getValue(),
-                idempotencyKey.getValue(),
-                gson.toJson(response),
-                response.getClass().getSimpleName()
-        );
-
-        authService.saveCachedResponseFromId(saveCachedResponseFromIdRequest);
-
-        return response;
     }
     @Override
     public AccountStatusResponse freezeAccount(FreezeAccountRequest request) {
@@ -640,43 +713,61 @@ public class AccountServiceImpl implements AccountService {
             return accountStatusResponse;
         }
 
-        Account account = accountRepository.findById(accountId);
-        boolean isExistingAccount = account != null;
-        boolean isOwnedByAuthenticatedCustomer = account.getOwnerId().equals(authenticatedId);
-        if (!isExistingAccount || !isOwnedByAuthenticatedCustomer) {
-            String failureReason = String.format(
-                    "Account: %s; Owned: %; Exists: %s; User: %s;",
-                    request.getAccountId(),
-                    isOwnedByAuthenticatedCustomer,
-                    isExistingAccount,
-                    authenticatedId
+        try {
+            Account account = accountRepository.findById(accountId);
+
+            boolean isExistingAccount = account != null;
+            boolean isOwnedByAuthenticatedCustomer = account.getOwnerId().equals(authenticatedId);
+            if (!isExistingAccount || !isOwnedByAuthenticatedCustomer) {
+                String failureReason = String.format(
+                        "Account: %s; Owned: %; Exists: %s; User: %s;",
+                        request.getAccountId(),
+                        isOwnedByAuthenticatedCustomer,
+                        isExistingAccount,
+                        authenticatedId
+                );
+
+                return new AccountStatusResponse(
+                        null,
+                        OperationStatus.FAILURE.getValue(),
+                        failureReason
+                );
+            }
+
+            account.freeze(time.now());
+            accountRepository.save(account);
+
+            AccountStatusResponse response = new AccountStatusResponse(
+                    account.getAccountStatus().getValue(),
+                    OperationStatus.SUCCESS.getValue(),
+                    null
+            );
+            SaveCachedResponseFromIdRequest saveCachedResponseFromIdRequest = new SaveCachedResponseFromIdRequest(
+                    authenticatedId.getValue(),
+                    idempotencyKey.getValue(),
+                    gson.toJson(response),
+                    response.getClass().getSimpleName()
             );
 
-            return new AccountStatusResponse(
+            authService.saveCachedResponseFromId(saveCachedResponseFromIdRequest);
+
+            return response;
+
+        } catch (IllegalStateException | IllegalArgumentException | AccountNotFoundException e) {
+            OperationStatus operationStatus = OperationStatus.of(
+                    "FAILURE",
+                    false,
+                    false,
+                    e.getMessage()
+            );
+            AccountStatusResponse accountStatusResponse = new AccountStatusResponse(
                     null,
-                    OperationStatus.FAILURE.getValue(),
-                    failureReason
+                    operationStatus.getValue(),
+                    operationStatus.getDescription()
             );
+
+            return accountStatusResponse;
         }
-
-        account.freeze(time.now());
-        accountRepository.save(account);
-
-        AccountStatusResponse response = new AccountStatusResponse(
-                account.getAccountStatus().getValue(),
-                OperationStatus.SUCCESS.getValue(),
-                null
-        );
-        SaveCachedResponseFromIdRequest saveCachedResponseFromIdRequest = new SaveCachedResponseFromIdRequest(
-                authenticatedId.getValue(),
-                idempotencyKey.getValue(),
-                gson.toJson(response),
-                response.getClass().getSimpleName()
-        );
-
-        authService.saveCachedResponseFromId(saveCachedResponseFromIdRequest);
-
-        return response;
     }
     @Override
     public AccountStatusResponse unfreezeAccount(UnfreezeAccountRequest request) {
@@ -716,43 +807,61 @@ public class AccountServiceImpl implements AccountService {
             return accountStatusResponse;
         }
 
-        Account account = accountRepository.findById(accountId);
-        boolean isExistingAccount = account != null;
-        boolean isOwnedByAuthenticatedCustomer = account.getOwnerId().equals(authenticatedId);
-        if (!isExistingAccount || !isOwnedByAuthenticatedCustomer) {
-            String failureReason = String.format(
-                    "Account: %s; Owned: %; Exists: %s; User: %s;",
-                    request.getAccountId(),
-                    isOwnedByAuthenticatedCustomer,
-                    isExistingAccount,
-                    authenticatedId
+        try {
+            Account account = accountRepository.findById(accountId);
+
+            boolean isExistingAccount = account != null;
+            boolean isOwnedByAuthenticatedCustomer = account.getOwnerId().equals(authenticatedId);
+            if (!isExistingAccount || !isOwnedByAuthenticatedCustomer) {
+                String failureReason = String.format(
+                        "Account: %s; Owned: %; Exists: %s; User: %s;",
+                        request.getAccountId(),
+                        isOwnedByAuthenticatedCustomer,
+                        isExistingAccount,
+                        authenticatedId
+                );
+
+                return new AccountStatusResponse(
+                        null,
+                        OperationStatus.FAILURE.getValue(),
+                        failureReason
+                );
+            }
+
+            account.unfreeze(time.now());
+            accountRepository.save(account);
+
+            AccountStatusResponse response = new AccountStatusResponse(
+                    account.getAccountStatus().getValue(),
+                    OperationStatus.SUCCESS.getValue(),
+                    null
+            );
+            SaveCachedResponseFromIdRequest saveCachedResponseFromIdRequest = new SaveCachedResponseFromIdRequest(
+                    authenticatedId.getValue(),
+                    idempotencyKey.getValue(),
+                    gson.toJson(response),
+                    response.getClass().getSimpleName()
             );
 
-            return new AccountStatusResponse(
+            authService.saveCachedResponseFromId(saveCachedResponseFromIdRequest);
+
+            return response;
+
+        } catch (IllegalStateException | IllegalArgumentException | AccountNotFoundException e) {
+            OperationStatus operationStatus = OperationStatus.of(
+                    "FAILURE",
+                    false,
+                    false,
+                    e.getMessage()
+            );
+            AccountStatusResponse accountStatusResponse = new AccountStatusResponse(
                     null,
-                    OperationStatus.FAILURE.getValue(),
-                    failureReason
+                    operationStatus.getValue(),
+                    operationStatus.getDescription()
             );
+
+            return accountStatusResponse;
         }
-
-        account.unfreeze(time.now());
-        accountRepository.save(account);
-
-        AccountStatusResponse response = new AccountStatusResponse(
-                account.getAccountStatus().getValue(),
-                OperationStatus.SUCCESS.getValue(),
-                null
-        );
-        SaveCachedResponseFromIdRequest saveCachedResponseFromIdRequest = new SaveCachedResponseFromIdRequest(
-                authenticatedId.getValue(),
-                idempotencyKey.getValue(),
-                gson.toJson(response),
-                response.getClass().getSimpleName()
-        );
-
-        authService.saveCachedResponseFromId(saveCachedResponseFromIdRequest);
-
-        return response;
     }
     @Override
     public AccountResponse getAccountDetails(GetAccountDetailsRequest request) {
@@ -776,23 +885,36 @@ public class AccountServiceImpl implements AccountService {
             return AccountMapper.failureResponse(failureReason, OperationStatus.FAILURE);
         }
 
-        Account account = accountRepository.findById(accountId);
-        boolean isOwnedByAuthenticatedCustomer = account.getOwnerId().equals(authenticatedId);
-        boolean isExistingAccount = account != null;
-        if (!isExistingAccount || !isOwnedByAuthenticatedCustomer) {
-            String failureReason = String.format(
-                    "Account: %s; Owned: %; Exists: %s; User: %s;",
-                    request.getAccountId(),
-                    isOwnedByAuthenticatedCustomer,
-                    isExistingAccount,
-                    authenticatedId
+        try {
+            Account account = accountRepository.findById(accountId);
+
+            boolean isOwnedByAuthenticatedCustomer = account.getOwnerId().equals(authenticatedId);
+            boolean isExistingAccount = account != null;
+            if (!isExistingAccount || !isOwnedByAuthenticatedCustomer) {
+                String failureReason = String.format(
+                        "Account: %s; Owned: %; Exists: %s; User: %s;",
+                        request.getAccountId(),
+                        isOwnedByAuthenticatedCustomer,
+                        isExistingAccount,
+                        authenticatedId
+                );
+
+                return AccountMapper.failureResponse(failureReason, OperationStatus.FAILURE);
+            }
+
+            AccountResponse response = AccountMapper.toResponse(account, OperationStatus.SUCCESS);
+
+            return response;
+
+        } catch (Exception e) {
+            OperationStatus operationStatus = OperationStatus.of(
+                    "FAILURE",
+                    false,
+                    false,
+                    e.getMessage()
             );
 
-            return AccountMapper.failureResponse(failureReason, OperationStatus.FAILURE);
+            return AccountMapper.failureResponse(authenticatedId.getValue(), operationStatus);
         }
-
-        AccountResponse response = AccountMapper.toResponse(account, OperationStatus.SUCCESS);
-
-        return response;
     }
 }
