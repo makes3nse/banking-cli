@@ -1,11 +1,13 @@
 package lv.v3nom.application.service.impl;
 
 import com.google.gson.Gson;
+import com.google.gson.JsonSyntaxException;
 import lv.v3nom.application.dto.requests.*;
 import lv.v3nom.application.dto.responses.*;
 import lv.v3nom.application.mapper.CustomerMapper;
 import lv.v3nom.application.service.AuthService;
 import lv.v3nom.application.service.CustomerService;
+import lv.v3nom.domain.exception.CustomerNotFoundException;
 import lv.v3nom.domain.model.Customer;
 import lv.v3nom.domain.security.PasswordHasher;
 import lv.v3nom.domain.value.*;
@@ -32,322 +34,458 @@ public class CustomerServiceImpl implements CustomerService {
 
     @Override
     public CustomerResponse register(RegisterCustomerRequest request) {
-        SystemDateTimeProvider time = new SystemDateTimeProvider();
+        try {
+            SystemDateTimeProvider time = new SystemDateTimeProvider();
 
-        IdempotencyKey idempotencyKey = IdempotencyKey.of(request.getIdempotencyKey());
+            IdempotencyKey idempotencyKey = IdempotencyKey.of(request.getIdempotencyKey());
 
-        GetCachedResponseFromEmailRequest getCachedResponseFromEmailRequest = new GetCachedResponseFromEmailRequest(
-                request.getEmail(), idempotencyKey.getValue()
-        );
-        CachedResponse cachedResponse = authService.getCachedResponseFromEmail(getCachedResponseFromEmailRequest);
-        if (cachedResponse != null) {
-            CustomerResponse customerResponse = gson.fromJson(
-                    cachedResponse.getResponseJson(),
-                    CustomerResponse.class
+            GetCachedResponseFromEmailRequest getCachedResponseFromEmailRequest = new GetCachedResponseFromEmailRequest(
+                    request.getEmail(), idempotencyKey.getValue()
+            );
+            CachedResponse cachedResponse = authService.getCachedResponseFromEmail(getCachedResponseFromEmailRequest);
+            if (cachedResponse != null) {
+                CustomerResponse customerResponse = gson.fromJson(
+                        cachedResponse.getResponseJson(),
+                        CustomerResponse.class
+                );
+
+                return customerResponse;
+            }
+
+            Customer customer = Customer.register(
+                    request.getName(),
+                    request.getEmail(),
+                    request.getPhone(),
+                    request.getRawPassword(),
+                    passwordHasher,
+                    time.now()
+            );
+            customerRepository.save(customer);
+            CustomerResponse customerResponse = CustomerMapper.toResponse(customer, OperationStatus.SUCCESS);
+            SaveCachedResponseFromEmailRequest saveCachedResponseFromEmailRequest = new SaveCachedResponseFromEmailRequest(
+                    customer.getEmail().getValue(),
+                    idempotencyKey.getValue(),
+                    gson.toJson(customerResponse),
+                    customerResponse.getClass().getSimpleName()
+            );
+            authService.saveCachedResponseFromEmail(saveCachedResponseFromEmailRequest);
+
+            return customerResponse;
+
+        } catch (IllegalArgumentException | JsonSyntaxException e) {
+            OperationStatus operationStatus = OperationStatus.of(
+                    "FAILURE",
+                    false,
+                    true,
+                    e.toString()
+            );
+            CustomerResponse customerResponse = CustomerMapper.failureResponse(
+                    null,
+                    operationStatus
             );
 
             return customerResponse;
         }
-
-        Customer customer = Customer.register(
-                request.getName(),
-                request.getEmail(),
-                request.getPhone(),
-                request.getRawPassword(),
-                passwordHasher,
-                time.now()
-        );
-        customerRepository.save(customer);
-        CustomerResponse customerResponse = CustomerMapper.toResponse(customer, OperationStatus.SUCCESS);
-        SaveCachedResponseFromEmailRequest saveCachedResponseFromEmailRequest = new SaveCachedResponseFromEmailRequest(
-                customer.getEmail().getValue(),
-                idempotencyKey.getValue(),
-                gson.toJson(customerResponse),
-                customerResponse.getClass().getSimpleName()
-        );
-        authService.saveCachedResponseFromEmail(saveCachedResponseFromEmailRequest);
-
-        return customerResponse;
     }
     @Override
     public ChangeNameResponse changeName(ChangeNameRequest request) {
         String sessionToken = request.getCurrentSessionToken();
-        IdempotencyKey idempotencyKey = IdempotencyKey.of(request.getIdempotencyKey());
         String nameCurrent = request.getCurrentName();
         String nameNew = request.getNewName();
         AuthResponse authResponse = authService.authenticate(new AuthRequest(sessionToken));
-        CustomerId authenticatedId = CustomerId.of(authResponse.getCustomerId());
 
-        BooleanResponse isValidTokenResponse = authService.validateToken(new ValidateTokenRequest(sessionToken));
-        boolean isValidToken = isValidTokenResponse.value();
-        if (authenticatedId == null || !isValidToken) {
-            String failureReason = String.format(
-                    "Token: %s; Validity: %s; User: %s;",
-                    request.getCurrentSessionToken(),
-                    isValidToken,
-                    authenticatedId
+        try {
+            IdempotencyKey idempotencyKey = IdempotencyKey.of(request.getIdempotencyKey());
+            CustomerId authenticatedId = CustomerId.of(authResponse.getCustomerId());
+
+            BooleanResponse isValidTokenResponse = authService.validateToken(new ValidateTokenRequest(sessionToken));
+            boolean isValidToken = isValidTokenResponse.value();
+            if (authenticatedId == null || !isValidToken) {
+                String failureReason = String.format(
+                        "Token: %s; Validity: %s; User: %s;",
+                        request.getCurrentSessionToken(),
+                        isValidToken,
+                        authenticatedId
+                );
+                ChangeNameResponse changeNameResponse = new ChangeNameResponse(
+                        nameCurrent,
+                        OperationStatus.FAILURE.getValue(),
+                        failureReason
+                );
+
+                return changeNameResponse;
+            }
+
+            GetCachedResponseFromIdRequest getCachedResponseFromIdRequest = new GetCachedResponseFromIdRequest(
+                    authenticatedId.getValue(), idempotencyKey.getValue()
+            );
+            CachedResponse cachedResponse = authService.getCachedResponseFromId(getCachedResponseFromIdRequest);
+            if (cachedResponse != null) {
+                ChangeNameResponse changeNameResponse = gson.fromJson(
+                        cachedResponse.getResponseJson(), ChangeNameResponse.class
+                );
+
+                return changeNameResponse;
+            }
+
+            Customer customer = customerRepository.findById(authenticatedId);
+            customer.changeName(nameNew);
+            customerRepository.save(customer);
+
+            ChangeNameResponse changeNameResponse = new ChangeNameResponse(
+                    nameNew,
+                    OperationStatus.SUCCESS.getValue(),
+                    OperationStatus.SUCCESS.getDescription()
+            );
+            SaveCachedResponseFromIdRequest saveCachedResponseFromIdRequest = new SaveCachedResponseFromIdRequest(
+                    authenticatedId.getValue(),
+                    idempotencyKey.getValue(),
+                    gson.toJson(changeNameResponse),
+                    changeNameResponse.getClass().getSimpleName()
+            );
+            authService.saveCachedResponseFromId(saveCachedResponseFromIdRequest);
+
+            return changeNameResponse;
+
+        } catch (IllegalArgumentException | CustomerNotFoundException | JsonSyntaxException e) {
+            OperationStatus operationStatus = OperationStatus.of(
+                    "FAILURE",
+                    false,
+                    true,
+                    e.toString()
             );
             ChangeNameResponse changeNameResponse = new ChangeNameResponse(
                     nameCurrent,
-                    OperationStatus.FAILURE.getValue(),
-                    failureReason
+                    operationStatus.getValue(),
+                    operationStatus.getDescription()
             );
 
             return changeNameResponse;
         }
-
-        GetCachedResponseFromIdRequest getCachedResponseFromIdRequest = new GetCachedResponseFromIdRequest(
-                authenticatedId.getValue(), idempotencyKey.getValue()
-        );
-        CachedResponse cachedResponse = authService.getCachedResponseFromId(getCachedResponseFromIdRequest);
-        if (cachedResponse != null) {
-            ChangeNameResponse changeNameResponse = gson.fromJson(
-                    cachedResponse.getResponseJson(), ChangeNameResponse.class
-            );
-
-            return changeNameResponse;
-        }
-
-        Customer customer = customerRepository.findById(authenticatedId);
-        customer.changeName(nameNew);
-        customerRepository.save(customer);
-
-        ChangeNameResponse changeNameResponse = new ChangeNameResponse(
-                nameNew,
-                OperationStatus.SUCCESS.getValue(),
-                OperationStatus.SUCCESS.getDescription()
-        );
-        SaveCachedResponseFromIdRequest saveCachedResponseFromIdRequest = new SaveCachedResponseFromIdRequest(
-                authenticatedId.getValue(),
-                idempotencyKey.getValue(),
-                gson.toJson(changeNameResponse),
-                changeNameResponse.getClass().getSimpleName()
-        );
-        authService.saveCachedResponseFromId(saveCachedResponseFromIdRequest);
-
-        return changeNameResponse;
     }
     @Override
     public ChangeEmailResponse changeEmail(ChangeEmailRequest request) {
         String sessionToken = request.getCurrentSessionToken();
-        IdempotencyKey idempotencyKey = IdempotencyKey.of(request.getIdempotencyKey());
-        EmailAddress emailCurrent = EmailAddress.of(request.getCurrentEmail());
-        EmailAddress emailNew = EmailAddress.of(request.getNewEmail());
         AuthResponse authResponse = authService.authenticate(new AuthRequest(sessionToken));
-        CustomerId authenticatedId = CustomerId.of(authResponse.getCustomerId());
 
-        BooleanResponse isValidTokenResponse = authService.validateToken(new ValidateTokenRequest(sessionToken));
-        boolean isValidToken = isValidTokenResponse.value();
-        if (authenticatedId == null || !isValidToken) {
-            String failureReason = String.format(
-                    "Token: %s; Validity: %s; User: %s;",
-                    request.getCurrentSessionToken(),
-                    isValidToken,
-                    authenticatedId
+        try {
+            IdempotencyKey idempotencyKey = IdempotencyKey.of(request.getIdempotencyKey());
+            EmailAddress emailCurrent = EmailAddress.of(request.getCurrentEmail());
+            EmailAddress emailNew = EmailAddress.of(request.getNewEmail());
+
+            CustomerId authenticatedId = CustomerId.of(authResponse.getCustomerId());
+
+            BooleanResponse isValidTokenResponse = authService.validateToken(new ValidateTokenRequest(sessionToken));
+            boolean isValidToken = isValidTokenResponse.value();
+            if (authenticatedId == null || !isValidToken) {
+                String failureReason = String.format(
+                        "Token: %s; Validity: %s; User: %s;",
+                        request.getCurrentSessionToken(),
+                        isValidToken,
+                        authenticatedId
+                );
+                ChangeEmailResponse changeEmailResponse = new ChangeEmailResponse(
+                        emailCurrent.getValue(),
+                        OperationStatus.FAILURE.getValue(),
+                        failureReason
+                );
+
+                return changeEmailResponse;
+            }
+
+            GetCachedResponseFromIdRequest getCachedResponseFromIdRequest = new GetCachedResponseFromIdRequest(
+                    authenticatedId.getValue(), idempotencyKey.getValue()
+            );
+            CachedResponse cachedResponse = authService.getCachedResponseFromId(getCachedResponseFromIdRequest);
+            if (cachedResponse != null) {
+                ChangeEmailResponse changeEmailResponse = gson.fromJson(
+                        cachedResponse.getResponseJson(), ChangeEmailResponse.class
+                );
+
+                return changeEmailResponse;
+            }
+
+            Customer customer = customerRepository.findById(authenticatedId);
+            customer.changeEmail(emailNew);
+            customerRepository.save(customer);
+
+            ChangeEmailResponse changeEmailResponse = new ChangeEmailResponse(
+                    emailNew.getValue(), OperationStatus.SUCCESS.getValue(), OperationStatus.SUCCESS.getDescription()
+            );
+            SaveCachedResponseFromIdRequest saveCachedResponseFromIdRequest = new SaveCachedResponseFromIdRequest(
+                    authenticatedId.getValue(),
+                    idempotencyKey.getValue(),
+                    gson.toJson(changeEmailResponse),
+                    changeEmailResponse.getClass().getSimpleName()
+            );
+            authService.saveCachedResponseFromId(saveCachedResponseFromIdRequest);
+
+            return changeEmailResponse;
+
+        } catch (IllegalArgumentException | CustomerNotFoundException | JsonSyntaxException e) {
+            OperationStatus operationStatus = OperationStatus.of(
+                    "FAILURE",
+                    false,
+                    true,
+                    e.toString()
             );
             ChangeEmailResponse changeEmailResponse = new ChangeEmailResponse(
-                    emailCurrent.getValue(),
-                    OperationStatus.FAILURE.getValue(),
-                    failureReason
+                    request.getCurrentEmail(),
+                    operationStatus.getValue(),
+                    operationStatus.getDescription()
             );
 
             return changeEmailResponse;
         }
-
-        GetCachedResponseFromIdRequest getCachedResponseFromIdRequest = new GetCachedResponseFromIdRequest(
-                authenticatedId.getValue(), idempotencyKey.getValue()
-        );
-        CachedResponse cachedResponse = authService.getCachedResponseFromId(getCachedResponseFromIdRequest);
-        if (cachedResponse != null) {
-            ChangeEmailResponse changeEmailResponse = gson.fromJson(
-                    cachedResponse.getResponseJson(), ChangeEmailResponse.class
-            );
-
-            return changeEmailResponse;
-        }
-
-        Customer customer = customerRepository.findById(authenticatedId);
-        customer.changeEmail(emailNew);
-        customerRepository.save(customer);
-
-        ChangeEmailResponse changeEmailResponse = new ChangeEmailResponse(
-                emailNew.getValue(), OperationStatus.SUCCESS.getValue(), OperationStatus.SUCCESS.getDescription()
-        );
-        SaveCachedResponseFromIdRequest saveCachedResponseFromIdRequest = new SaveCachedResponseFromIdRequest(
-                authenticatedId.getValue(),
-                idempotencyKey.getValue(),
-                gson.toJson(changeEmailResponse),
-                changeEmailResponse.getClass().getSimpleName()
-        );
-        authService.saveCachedResponseFromId(saveCachedResponseFromIdRequest);
-
-        return null;
     }
     @Override
     public ChangePasswordResponse changePassword(ChangePasswordRequest request) {
         String sessionToken = request.getCurrentSessionToken();
-        IdempotencyKey idempotencyKey = IdempotencyKey.of(request.getIdempotencyKey());
         String passwordRawCurrent = request.getCurrentPassword();
         String passwordRawNew = request.getNewPassword();
         AuthResponse authResponse = authService.authenticate(new AuthRequest(sessionToken));
-        CustomerId authenticatedId = CustomerId.of(authResponse.getCustomerId());
 
-        BooleanResponse isValidTokenResponse = authService.validateToken(new ValidateTokenRequest(sessionToken));
-        boolean isValidToken = isValidTokenResponse.value();
-        if (authenticatedId == null || !isValidToken) {
-            String failureReason = String.format(
-                    "Token: %s; Validity: %s; User: %s;",
-                    request.getCurrentSessionToken(),
-                    isValidToken,
-                    authenticatedId
+        try {
+            IdempotencyKey idempotencyKey = IdempotencyKey.of(request.getIdempotencyKey());
+            CustomerId authenticatedId = CustomerId.of(authResponse.getCustomerId());
+
+            BooleanResponse isValidTokenResponse = authService.validateToken(new ValidateTokenRequest(sessionToken));
+            boolean isValidToken = isValidTokenResponse.value();
+            if (authenticatedId == null || !isValidToken) {
+                String failureReason = String.format(
+                        "Token: %s; Validity: %s; User: %s;",
+                        request.getCurrentSessionToken(),
+                        isValidToken,
+                        authenticatedId
+                );
+                ChangePasswordResponse changePasswordResponse = new ChangePasswordResponse(
+                        OperationStatus.FAILURE.getValue(),
+                        failureReason
+                );
+
+                return changePasswordResponse;
+            }
+
+            GetCachedResponseFromIdRequest getCachedResponseFromIdRequest = new GetCachedResponseFromIdRequest(
+                    authenticatedId.getValue(), idempotencyKey.getValue()
+            );
+            CachedResponse cachedResponse = authService.getCachedResponseFromId(getCachedResponseFromIdRequest);
+            if (cachedResponse != null) {
+                ChangePasswordResponse changePasswordResponse = gson.fromJson(
+                        cachedResponse.getResponseJson(),
+                        ChangePasswordResponse.class
+                );
+
+                return changePasswordResponse;
+            }
+
+            Customer customer = customerRepository.findById(authenticatedId);
+            customer.changePassword(passwordRawCurrent, passwordRawNew, passwordHasher);
+            customerRepository.save(customer);
+
+            ChangePasswordResponse changePasswordResponse = new ChangePasswordResponse(
+                    OperationStatus.SUCCESS.getValue(), OperationStatus.SUCCESS.getDescription()
+            );
+            SaveCachedResponseFromIdRequest saveCachedResponseFromIdRequest = new SaveCachedResponseFromIdRequest(
+                    authenticatedId.getValue(),
+                    idempotencyKey.getValue(),
+                    gson.toJson(changePasswordResponse),
+                    changePasswordResponse.getClass().getSimpleName()
+            );
+            authService.saveCachedResponseFromId(saveCachedResponseFromIdRequest);
+
+            return changePasswordResponse;
+
+        } catch (IllegalArgumentException | CustomerNotFoundException | JsonSyntaxException e) {
+            OperationStatus operationStatus = OperationStatus.of(
+                    "FAILURE",
+                    false,
+                    true,
+                    e.toString()
             );
             ChangePasswordResponse changePasswordResponse = new ChangePasswordResponse(
-                    OperationStatus.FAILURE.getValue(),
-                    failureReason
+                    operationStatus.getValue(),
+                    operationStatus.getDescription()
             );
 
             return changePasswordResponse;
         }
-
-        GetCachedResponseFromIdRequest getCachedResponseFromIdRequest = new GetCachedResponseFromIdRequest(
-                authenticatedId.getValue(), idempotencyKey.getValue()
-        );
-        CachedResponse cachedResponse = authService.getCachedResponseFromId(getCachedResponseFromIdRequest);
-        if (cachedResponse != null) {
-            ChangePasswordResponse changePasswordResponse = gson.fromJson(
-                    cachedResponse.getResponseJson(),
-                    ChangePasswordResponse.class
-            );
-
-            return changePasswordResponse;
-        }
-
-        Customer customer = customerRepository.findById(authenticatedId);
-        customer.changePassword(passwordRawCurrent, passwordRawNew, passwordHasher);
-        customerRepository.save(customer);
-
-        ChangePasswordResponse changePasswordResponse = new ChangePasswordResponse(
-                OperationStatus.SUCCESS.getValue(), OperationStatus.SUCCESS.getDescription()
-        );
-        SaveCachedResponseFromIdRequest saveCachedResponseFromIdRequest = new SaveCachedResponseFromIdRequest(
-                authenticatedId.getValue(),
-                idempotencyKey.getValue(),
-                gson.toJson(changePasswordResponse),
-                changePasswordResponse.getClass().getSimpleName()
-        );
-        authService.saveCachedResponseFromId(saveCachedResponseFromIdRequest);
-
-        return changePasswordResponse;
     }
     @Override
     public ChangePhoneNumberResponse changePhone(ChangePhoneNumberRequest request) {
         String sessionToken = request.getCurrentSessionToken();
-        IdempotencyKey idempotencyKey = IdempotencyKey.of(request.getIdempotencyKey());
-        PhoneNumber phoneNumberCurrent = PhoneNumber.of(request.getCurrentPhone());
-        PhoneNumber phoneNumberNew = PhoneNumber.of(request.getNewPhone());
         AuthResponse authResponse = authService.authenticate(new AuthRequest(sessionToken));
-        CustomerId authenticatedId = CustomerId.of(authResponse.getCustomerId());
 
-        BooleanResponse isValidTokenResponse = authService.validateToken(new ValidateTokenRequest(sessionToken));
-        boolean isValidToken = isValidTokenResponse.value();
-        if (authenticatedId == null || !isValidToken) {
-            String failureReason = String.format(
-                    "Token: %s; Validity: %s; User: %s;",
-                    request.getCurrentSessionToken(),
-                    isValidToken,
-                    authenticatedId
+        try {
+            IdempotencyKey idempotencyKey = IdempotencyKey.of(request.getIdempotencyKey());
+            PhoneNumber phoneNumberCurrent = PhoneNumber.of(request.getCurrentPhone());
+            PhoneNumber phoneNumberNew = PhoneNumber.of(request.getNewPhone());
+            CustomerId authenticatedId = CustomerId.of(authResponse.getCustomerId());
+
+            BooleanResponse isValidTokenResponse = authService.validateToken(new ValidateTokenRequest(sessionToken));
+            boolean isValidToken = isValidTokenResponse.value();
+            if (authenticatedId == null || !isValidToken) {
+                String failureReason = String.format(
+                        "Token: %s; Validity: %s; User: %s;",
+                        request.getCurrentSessionToken(),
+                        isValidToken,
+                        authenticatedId
+                );
+                ChangePhoneNumberResponse changePhoneNumberResponse = new ChangePhoneNumberResponse(
+                        phoneNumberCurrent.getValue(),
+                        OperationStatus.FAILURE.getValue(),
+                        failureReason
+                );
+
+                return changePhoneNumberResponse;
+            }
+
+            GetCachedResponseFromIdRequest getCachedResponseFromIdRequest = new GetCachedResponseFromIdRequest(
+                    authenticatedId.getValue(), idempotencyKey.getValue()
+            );
+            CachedResponse cachedResponse = authService.getCachedResponseFromId(getCachedResponseFromIdRequest);
+            if (cachedResponse != null) {
+                ChangePhoneNumberResponse changePhoneNumberResponse = gson.fromJson(
+                        cachedResponse.getResponseJson(), ChangePhoneNumberResponse.class
+                );
+
+                return changePhoneNumberResponse;
+            }
+
+            Customer customer = customerRepository.findById(authenticatedId);
+            customer.changePhoneNumber(phoneNumberNew);
+            customerRepository.save(customer);
+
+            ChangePhoneNumberResponse changePhoneNumberResponse = new ChangePhoneNumberResponse(
+                    phoneNumberNew.getValue(), OperationStatus.SUCCESS.getValue(), OperationStatus.SUCCESS.getDescription()
+            );
+            SaveCachedResponseFromIdRequest saveCachedResponseFromIdRequest = new SaveCachedResponseFromIdRequest(
+                    authenticatedId.getValue(),
+                    idempotencyKey.getValue(),
+                    gson.toJson(changePhoneNumberResponse),
+                    changePhoneNumberResponse.getClass().getSimpleName()
+            );
+            authService.saveCachedResponseFromId(saveCachedResponseFromIdRequest);
+
+            return changePhoneNumberResponse;
+
+        } catch (JsonSyntaxException e) {
+            OperationStatus operationStatus = OperationStatus.of(
+                    "FAILURE",
+                    false,
+                    true,
+                    e.toString()
             );
             ChangePhoneNumberResponse changePhoneNumberResponse = new ChangePhoneNumberResponse(
-                    phoneNumberCurrent.getValue(),
-                    OperationStatus.FAILURE.getValue(),
-                    failureReason
+                    null,
+                    operationStatus.getValue(),
+                    operationStatus.getDescription()
             );
 
             return changePhoneNumberResponse;
         }
-
-        GetCachedResponseFromIdRequest getCachedResponseFromIdRequest = new GetCachedResponseFromIdRequest(
-                authenticatedId.getValue(), idempotencyKey.getValue()
-        );
-        CachedResponse cachedResponse = authService.getCachedResponseFromId(getCachedResponseFromIdRequest);
-        if (cachedResponse != null) {
-            ChangePhoneNumberResponse changePhoneNumberResponse = gson.fromJson(
-                    cachedResponse.getResponseJson(), ChangePhoneNumberResponse.class
-            );
-
-            return changePhoneNumberResponse;
-        }
-
-        Customer customer = customerRepository.findById(authenticatedId);
-        customer.changePhoneNumber(phoneNumberNew);
-        customerRepository.save(customer);
-
-        ChangePhoneNumberResponse changePhoneNumberResponse = new ChangePhoneNumberResponse(
-                phoneNumberNew.getValue(), OperationStatus.SUCCESS.getValue(), OperationStatus.SUCCESS.getDescription()
-        );
-        SaveCachedResponseFromIdRequest saveCachedResponseFromIdRequest = new SaveCachedResponseFromIdRequest(
-                authenticatedId.getValue(),
-                idempotencyKey.getValue(),
-                gson.toJson(changePhoneNumberResponse),
-                changePhoneNumberResponse.getClass().getSimpleName()
-        );
-        authService.saveCachedResponseFromId(saveCachedResponseFromIdRequest);
-
-        return changePhoneNumberResponse;
     }
     @Override
     public CustomerResponse getCustomer(GetCustomerRequest request) {
-        AuthRequest authRequest = new AuthRequest(request.getCurrentSessionToken());
-        AuthResponse authResponse = authService.authenticate(authRequest);
-        CustomerId customerId = CustomerId.of(authResponse.getCustomerId());
-        Customer customer = customerRepository.findById(customerId);
+            AuthRequest authRequest = new AuthRequest(request.getCurrentSessionToken());
+            AuthResponse authResponse = authService.authenticate(authRequest);
 
-        if (customer == null) {
-            return CustomerMapper.failureResponse(authResponse.getCustomerId(), OperationStatus.FAILURE);
+        try {
+            CustomerId customerId = CustomerId.of(authResponse.getCustomerId());
+
+            Customer customer = customerRepository.findById(customerId);
+
+            return CustomerMapper.toResponse(customer, OperationStatus.SUCCESS);
+
+        } catch (CustomerNotFoundException | IllegalArgumentException e) {
+            OperationStatus operationStatus = OperationStatus.of(
+                    "FAILURE",
+                    false,
+                    true,
+                    e.toString()
+            );
+            CustomerResponse customerResponse = CustomerMapper.failureResponse(
+                    authResponse.getCustomerId(),
+                    operationStatus
+            );
+
+            return customerResponse;
         }
-        return CustomerMapper.toResponse(customer, OperationStatus.SUCCESS);
     }
     @Override
     public CustomerResponse getCustomerByEmail(GetCustomerByEmailRequest request) {
-        SystemDateTimeProvider time = new SystemDateTimeProvider();
+        try {
+            EmailAddress emailAddress = EmailAddress.of(request.getEmail());
 
-        EmailAddress emailAddress = EmailAddress.of(request.getEmail());
-        Customer customer = customerRepository.findByEmail(emailAddress);
+            Customer customer = customerRepository.findByEmail(emailAddress);
 
-        if (customer == null) {
-            return CustomerMapper.failureResponse(emailAddress.getValue(), OperationStatus.FAILURE);
+            return CustomerMapper.toResponse(customer, OperationStatus.SUCCESS);
+
+        } catch (CustomerNotFoundException e) {
+            OperationStatus operationStatus = OperationStatus.of(
+                    "FAILURE",
+                    false,
+                    true,
+                    e.toString()
+            );
+            CustomerResponse customerResponse = CustomerMapper.failureResponse(
+                    request.getEmail(),
+                    operationStatus
+            );
+
+            return customerResponse;
         }
-        return CustomerMapper.toResponse(customer, OperationStatus.SUCCESS);
     }
     @Override
     public BooleanResponse canManipulateTransactions(CanCustomerManipulateTransactionsRequest request) {
         AuthRequest authRequest = new AuthRequest(request.getCurrentSessionToken());
         AuthResponse authResponse = authService.authenticate(authRequest);
-        CustomerId customerId = CustomerId.of(authResponse.getCustomerId());
-        Customer customer = customerRepository.findById(customerId);
 
-        if (customer == null) {
+        try {
+            CustomerId customerId = CustomerId.of(authResponse.getCustomerId());
+
+            Customer customer = customerRepository.findById(customerId);
+
+            return new BooleanResponse(PermissionChecker.canReturnOrRejectTransaction(customer));
+
+        } catch (CustomerNotFoundException | IllegalArgumentException e) {
+            OperationStatus operationStatus = OperationStatus.of(
+                    "FAILURE",
+                    false,
+                    true,
+                    e.toString()
+            );
+            // TODO -> change boolean DTO to store errorMessage
             return new BooleanResponse(false);
         }
-        return new BooleanResponse(PermissionChecker.canReturnOrRejectTransaction(customer));
     }
 
     @Override
     public BooleanResponse validateLoginCredentials(ValidateLoginCredentialsRequest request) {
-        CustomerId customerId = CustomerId.of(request.getCustomerId());
         String rawPassword = request.getRawPassword();
-        EmailAddress emailAddress = EmailAddress.of(request.getEmailAddress());
-        Customer customer = customerRepository.findById(customerId);
 
-        if (customer == null) {
+        try {
+            CustomerId customerId = CustomerId.of(request.getCustomerId());
+            EmailAddress emailAddress = EmailAddress.of(request.getEmailAddress());
+
+            Customer customer = customerRepository.findById(customerId);
+
+            boolean isValidPassword = customer.getPassword().matches(rawPassword, passwordHasher);
+            boolean emailMatches = customer.getEmail().equals(emailAddress);
+
+            BooleanResponse booleanResponse = new BooleanResponse(isValidPassword && emailMatches);
+
+            return booleanResponse;
+
+        } catch (IllegalArgumentException | CustomerNotFoundException e) {
+            OperationStatus operationStatus = OperationStatus.of(
+                    "FAILURE",
+                    false,
+                    true,
+                    e.toString()
+            );
+            // TODO -> change boolean DTO to store errorMessage
             return new BooleanResponse(false);
         }
-
-        boolean isValidPassword = customer.getPassword().matches(rawPassword, passwordHasher);
-        boolean emailMatches = customer.getEmail().equals(emailAddress);
-
-        BooleanResponse booleanResponse = new BooleanResponse(isValidPassword && emailMatches);
-
-        return booleanResponse;
     }
 }
