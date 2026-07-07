@@ -137,7 +137,10 @@ public class AuthServiceImpl implements AuthService {
         tokenStore.cleanExpired(time.now());
         tokenStore.invalidate(sessionToken);
 
-        BooleanResponse booleanResponse = new BooleanResponse(OperationStatus.SUCCESS.isOperational());
+        BooleanResponse booleanResponse = new BooleanResponse(
+                OperationStatus.SUCCESS.isOperational(),
+                null
+        );
         SaveCachedResponseFromIdRequest saveCachedResponseFromIdRequest = new SaveCachedResponseFromIdRequest(
                 authenticatedId.getValue(),
                 idempotencyKey.getValue(),
@@ -151,7 +154,7 @@ public class AuthServiceImpl implements AuthService {
     @Override
     public BooleanResponse validateToken(ValidateTokenRequest request) {
         SystemDateTimeProvider time = new SystemDateTimeProvider();
-        return new BooleanResponse(tokenStore.isValid(request.getTokenValue(), time.now()));
+        return new BooleanResponse(tokenStore.isValid(request.getTokenValue(), time.now()), null);
     }
     @Override
     public AuthResponse authenticate(AuthRequest request) {

@@ -1,6 +1,7 @@
 package lv.v3nom.application.service.impl;
 
 import com.google.gson.Gson;
+import com.google.gson.JsonSyntaxException;
 import lv.v3nom.application.dto.requests.*;
 import lv.v3nom.application.dto.responses.*;
 import lv.v3nom.application.mapper.AccountMapper;
@@ -46,47 +47,48 @@ public class AccountServiceImpl implements AccountService {
         //      Save to repo
         //      Cache response
         //      Return response
-
         SystemDateTimeProvider time = new SystemDateTimeProvider();
 
-        Currency currency = Currency.of(request.getCurrency());
         String sessionToken = request.getCurrentSessionToken();
         String idempotencyKey = request.getIdempotencyKey();
         AuthResponse authResponse = authService.authenticate(new AuthRequest(sessionToken));
-        CustomerId authenticatedId = CustomerId.of(authResponse.getCustomerId());
 
-        BooleanResponse tokenValidityResponse = authService.validateToken(new ValidateTokenRequest(sessionToken));
-        boolean isValidToken = tokenValidityResponse.value();
-        if (authenticatedId == null || !isValidToken) {
-            return AccountMapper.failureResponse(authenticatedId.toString(), OperationStatus.FAILURE);
-        }
-
-        GetCachedResponseFromIdRequest getCachedResponseFromIdRequest = new GetCachedResponseFromIdRequest(
-                authenticatedId.getValue(), idempotencyKey
-        );
-        CachedResponse cachedResponse = authService.getCachedResponseFromId(getCachedResponseFromIdRequest);
-        if (cachedResponse != null) {
-            AccountResponse accountResponse = gson.fromJson(
-                    cachedResponse.getResponseJson(),
-                    AccountResponse.class
-            );
-            return accountResponse;
-        }
-
-        //  later add TOMCAT and separate services to different projects,
-        //  establish comms over HTTP
-        //  something like:
-        //  private final RestTemplate restTemplate;
-        //  String url = "http://localhost:8082/getCustomer";
-        //  GetCustomerRequest request = new GetCustomerRequest(sessionToken);
-        //  CustomerResponse customerResponse = restTemplate.postForObject(url, request, CustomerResponse.class);
-
-        CustomerResponse customerResponse = customerService.getCustomer(new GetCustomerRequest(sessionToken));
-
-        // WE DON'T NEED FULL CUSTOMER_ENTITY AS IT HAS PASSWORDS AND ALL THAT SHIT INSIDE,
-        //  SO WE JUST NEED TO GET A GENERAL-PURPOSE CUSTOMER_RESPONSE WITHOUT SENSITIVE DATA,
-        //  WE CAN RETRIEVE ALL NEEDED DATA FROM CUSTOMER_RESPONSE, SUCH AS _STATUS, _ID ETC.
         try {
+            Currency currency = Currency.of(request.getCurrency());
+            CustomerId authenticatedId = CustomerId.of(authResponse.getCustomerId());
+
+            BooleanResponse tokenValidityResponse = authService.validateToken(new ValidateTokenRequest(sessionToken));
+            boolean isValidToken = tokenValidityResponse.value();
+            if (authenticatedId == null || !isValidToken) {
+                return AccountMapper.failureResponse(authenticatedId.toString(), OperationStatus.FAILURE);
+            }
+
+            GetCachedResponseFromIdRequest getCachedResponseFromIdRequest = new GetCachedResponseFromIdRequest(
+                    authenticatedId.getValue(), idempotencyKey
+            );
+            CachedResponse cachedResponse = authService.getCachedResponseFromId(getCachedResponseFromIdRequest);
+            if (cachedResponse != null) {
+                AccountResponse accountResponse = gson.fromJson(
+                        cachedResponse.getResponseJson(),
+                        AccountResponse.class
+                );
+                return accountResponse;
+            }
+
+            //  later add TOMCAT and separate services to different projects,
+            //  establish comms over HTTP
+            //  something like:
+            //  private final RestTemplate restTemplate;
+            //  String url = "http://localhost:8082/getCustomer";
+            //  GetCustomerRequest request = new GetCustomerRequest(sessionToken);
+            //  CustomerResponse customerResponse = restTemplate.postForObject(url, request, CustomerResponse.class);
+
+            CustomerResponse customerResponse = customerService.getCustomer(new GetCustomerRequest(sessionToken));
+
+            // WE DON'T NEED FULL CUSTOMER_ENTITY AS IT HAS PASSWORDS AND ALL THAT SHIT INSIDE,
+            //  SO WE JUST NEED TO GET A GENERAL-PURPOSE CUSTOMER_RESPONSE WITHOUT SENSITIVE DATA,
+            //  WE CAN RETRIEVE ALL NEEDED DATA FROM CUSTOMER_RESPONSE, SUCH AS _STATUS, _ID ETC.
+
             Account account = Account.open(
                     authenticatedId,
                     currency,
@@ -98,7 +100,6 @@ public class AccountServiceImpl implements AccountService {
             accountRepository.save(account);
 
             AccountResponse response = AccountMapper.toResponse(account, OperationStatus.SUCCESS);
-
             SaveCachedResponseFromIdRequest saveCachedResponseFromIdRequest = new SaveCachedResponseFromIdRequest(
                     authenticatedId.getValue(),
                     request.getIdempotencyKey(),
@@ -112,14 +113,14 @@ public class AccountServiceImpl implements AccountService {
 
             return response;
 
-        } catch (IllegalArgumentException | IllegalStateException e) {
+        } catch (IllegalArgumentException | IllegalStateException | JsonSyntaxException e) {
             OperationStatus operationStatus = OperationStatus.of(
                     "FAILURE",
                     false,
                     false,
                     e.getMessage()
             );
-            return AccountMapper.failureResponse(authenticatedId.getValue(), operationStatus);
+            return AccountMapper.failureResponse(authResponse.getCustomerId(), operationStatus);
         }
     }
     @Override
@@ -134,49 +135,49 @@ public class AccountServiceImpl implements AccountService {
         //      Save account + transaction
         //      Cache response
         //      Return response
-
         SystemDateTimeProvider time = new SystemDateTimeProvider();
 
         String sessionToken = request.getCurrentSessionToken();
-        TransactionType transactionType = TransactionType.DEPOSIT;
-        Currency currency = Currency.of(request.getCurrency());
-        Money amount = Money.of(request.getAmount(), currency);
-        TransactionId transactionId = TransactionId.generate();
-        AccountId accountId = AccountId.of(request.getAccountId());
         AuthResponse authResponse = authService.authenticate(new AuthRequest(sessionToken));
-        CustomerId authenticatedId = CustomerId.of(authResponse.getCustomerId());
-
-        BooleanResponse tokenValidityResponse = authService.validateToken(new ValidateTokenRequest(sessionToken));
-        boolean isValidToken = tokenValidityResponse.value();
-        if (!isValidToken || authenticatedId == null) {
-            String failureReason = String.format(
-                    "Token: %s; Validity: %s; User: %s;",
-                    request.getCurrentSessionToken(),
-                    isValidToken,
-                    authenticatedId
-            );
-            GetFailureTransactionRequest getFailureTransactionRequest = new GetFailureTransactionRequest(
-                    transactionType.getTransactionName(),
-                    failureReason,
-                    OperationStatus.FAILURE.getValue()
-            );
-
-            return transactionService.getFailureResponse(getFailureTransactionRequest);
-        }
-
-        GetCachedResponseFromIdRequest getCachedResponseFromIdRequest = new GetCachedResponseFromIdRequest(
-                authenticatedId.getValue(), request.getIdempotencyKey()
-        );
-        CachedResponse cachedResponse = authService.getCachedResponseFromId(getCachedResponseFromIdRequest);
-        if (cachedResponse != null) {
-            TransactionResponse accountResponse = gson.fromJson(
-                    cachedResponse.getResponseJson(),
-                    TransactionResponse.class
-            );
-            return accountResponse;
-        }
-
         try {
+
+            TransactionType transactionType = TransactionType.DEPOSIT;
+            Currency currency = Currency.of(request.getCurrency());
+            Money amount = Money.of(request.getAmount(), currency);
+            TransactionId transactionId = TransactionId.generate();
+            AccountId accountId = AccountId.of(request.getAccountId());
+            CustomerId authenticatedId = CustomerId.of(authResponse.getCustomerId());
+
+            BooleanResponse tokenValidityResponse = authService.validateToken(new ValidateTokenRequest(sessionToken));
+            boolean isValidToken = tokenValidityResponse.value();
+            if (!isValidToken || authenticatedId == null) {
+                String failureReason = String.format(
+                        "Token: %s; Validity: %s; User: %s;",
+                        request.getCurrentSessionToken(),
+                        isValidToken,
+                        authenticatedId
+                );
+                GetFailureTransactionRequest getFailureTransactionRequest = new GetFailureTransactionRequest(
+                        transactionType.getTransactionName(),
+                        failureReason,
+                        OperationStatus.FAILURE.getValue()
+                );
+
+                return transactionService.getFailureResponse(getFailureTransactionRequest);
+            }
+
+            GetCachedResponseFromIdRequest getCachedResponseFromIdRequest = new GetCachedResponseFromIdRequest(
+                    authenticatedId.getValue(), request.getIdempotencyKey()
+            );
+            CachedResponse cachedResponse = authService.getCachedResponseFromId(getCachedResponseFromIdRequest);
+            if (cachedResponse != null) {
+                TransactionResponse accountResponse = gson.fromJson(
+                        cachedResponse.getResponseJson(),
+                        TransactionResponse.class
+                );
+                return accountResponse;
+            }
+
             Account account = accountRepository.findById(accountId);
 
             boolean isOwnedByAuthenticatedCustomer = account.getOwnerId().equals(authenticatedId);
@@ -228,7 +229,7 @@ public class AccountServiceImpl implements AccountService {
 
             return finalTransactionResponse;
 
-        } catch (IllegalArgumentException | IllegalStateException | AccountNotFoundException e) {
+        } catch (IllegalArgumentException | IllegalStateException | AccountNotFoundException | JsonSyntaxException e) {
             OperationStatus operationStatus = OperationStatus.of(
                     "FAILURE",
                     false,
@@ -248,49 +249,50 @@ public class AccountServiceImpl implements AccountService {
     public TransactionResponse withdraw(WithdrawRequest request) {
         SystemDateTimeProvider time = new SystemDateTimeProvider();
 
-        TransactionType transactionType = TransactionType.WITHDRAW;
-        IdempotencyKey idempotencyKey = IdempotencyKey.of(request.getIdempotencyKey());
         String sessionToken = request.getCurrentSessionToken();
-        Currency currency = Currency.of(request.getCurrency());
-        Money amount = Money.of(request.getAmount(), currency);
-        TransactionId transactionId = TransactionId.generate();
-        AccountId accountId = AccountId.of(request.getAccountId());
         AuthResponse authResponse = authService.authenticate(new AuthRequest(sessionToken));
-        CustomerId authenticatedId = CustomerId.of(authResponse.getCustomerId());
-
-        BooleanResponse tokenValidityResponse = authService.validateToken(new ValidateTokenRequest(sessionToken));
-        boolean isValidToken = tokenValidityResponse.value();
-        if (authenticatedId == null || !isValidToken) {
-            String failureReason = String.format(
-                    "Token: %s; Validity: %s; User: %s;",
-                    request.getCurrentSessionToken(),
-                    isValidToken,
-                    authenticatedId
-            );
-            GetFailureTransactionRequest getFailureTransactionRequest = new GetFailureTransactionRequest(
-                    transactionType.getTransactionName(),
-                    failureReason,
-                    OperationStatus.FAILURE.getValue()
-            );
-
-            return transactionService.getFailureResponse(getFailureTransactionRequest);
-        }
-
-        GetCachedResponseFromIdRequest getCachedResponseFromIdRequest = new GetCachedResponseFromIdRequest(
-                authenticatedId.getValue(),
-                idempotencyKey.getValue()
-        );
-        CachedResponse cachedResponse = authService.getCachedResponseFromId(getCachedResponseFromIdRequest);
-        if (cachedResponse != null) {
-            TransactionResponse transactionResponse = gson.fromJson(
-                    cachedResponse.getResponseJson(),
-                    TransactionResponse.class
-            );
-
-            return transactionResponse;
-        }
 
         try {
+            TransactionType transactionType = TransactionType.WITHDRAW;
+            IdempotencyKey idempotencyKey = IdempotencyKey.of(request.getIdempotencyKey());
+            Currency currency = Currency.of(request.getCurrency());
+            Money amount = Money.of(request.getAmount(), currency);
+            TransactionId transactionId = TransactionId.generate();
+            AccountId accountId = AccountId.of(request.getAccountId());
+            CustomerId authenticatedId = CustomerId.of(authResponse.getCustomerId());
+
+            BooleanResponse tokenValidityResponse = authService.validateToken(new ValidateTokenRequest(sessionToken));
+            boolean isValidToken = tokenValidityResponse.value();
+            if (authenticatedId == null || !isValidToken) {
+                String failureReason = String.format(
+                        "Token: %s; Validity: %s; User: %s;",
+                        request.getCurrentSessionToken(),
+                        isValidToken,
+                        authenticatedId
+                );
+                GetFailureTransactionRequest getFailureTransactionRequest = new GetFailureTransactionRequest(
+                        transactionType.getTransactionName(),
+                        failureReason,
+                        OperationStatus.FAILURE.getValue()
+                );
+
+                return transactionService.getFailureResponse(getFailureTransactionRequest);
+            }
+
+            GetCachedResponseFromIdRequest getCachedResponseFromIdRequest = new GetCachedResponseFromIdRequest(
+                    authenticatedId.getValue(),
+                    idempotencyKey.getValue()
+            );
+            CachedResponse cachedResponse = authService.getCachedResponseFromId(getCachedResponseFromIdRequest);
+            if (cachedResponse != null) {
+                TransactionResponse transactionResponse = gson.fromJson(
+                        cachedResponse.getResponseJson(),
+                        TransactionResponse.class
+                );
+
+                return transactionResponse;
+            }
+
             Account account = accountRepository.findById(accountId);
 
             boolean isOwnedByAuthenticatedCustomer = account.getOwnerId().equals(authenticatedId);
@@ -341,7 +343,7 @@ public class AccountServiceImpl implements AccountService {
 
             return finalTransactionResponse;
 
-        } catch (IllegalArgumentException | IllegalStateException | AccountNotFoundException e) {
+        } catch (IllegalArgumentException | IllegalStateException | AccountNotFoundException | JsonSyntaxException e) {
             OperationStatus operationStatus = OperationStatus.of(
                     "FAILURE",
                     false,
@@ -370,49 +372,49 @@ public class AccountServiceImpl implements AccountService {
         //      Save both accounts + transaction
         //      Cache response
         //      Return response
-
         SystemDateTimeProvider time = new SystemDateTimeProvider();
 
-        TransactionType transactionType = TransactionType.TRANSFER;
-        IdempotencyKey idempotencyKey = IdempotencyKey.of(request.getIdempotencyKey());
         String sessionToken = request.getCurrentSessionToken();
-        Currency currency = Currency.of(request.getCurrency());
-        Money amount = Money.of(request.getAmount(), currency);
-        TransactionId transactionId = TransactionId.generate();
-        AccountId sourceAccountId = AccountId.of(request.getSourceAccountId());
-        AccountId targetAccountId = AccountId.of(request.getTargetAccountId());
         AuthResponse authResponse = authService.authenticate(new AuthRequest(sessionToken));
-        CustomerId authenticatedId = CustomerId.of(authResponse.getCustomerId());
-
-        BooleanResponse tokenValidityResponse = authService.validateToken(new ValidateTokenRequest(sessionToken));
-        boolean isValidToken = tokenValidityResponse.value();
-        if (authenticatedId == null || !isValidToken) {
-            String failureReason = String.format(
-                    "Token: %s; Validity: %s; User: %s;",
-                    request.getCurrentSessionToken(),
-                    isValidToken,
-                    authenticatedId
-            );
-            GetFailureTransactionRequest getFailureTransactionRequest = new GetFailureTransactionRequest(
-                    transactionType.getTransactionName(), failureReason, OperationStatus.FAILURE.getValue()
-            );
-
-            return transactionService.getFailureResponse(getFailureTransactionRequest);
-        }
-
-        GetCachedResponseFromIdRequest getCachedResponseFromIdRequest = new GetCachedResponseFromIdRequest(
-                authenticatedId.getValue(), idempotencyKey.getValue()
-        );
-        CachedResponse cachedResponse = authService.getCachedResponseFromId(getCachedResponseFromIdRequest);
-        if (cachedResponse != null) {
-            TransactionResponse transactionResponse = gson.fromJson(
-                    cachedResponse.getResponseJson(), TransactionResponse.class
-            );
-
-            return transactionResponse;
-        }
 
         try {
+            TransactionType transactionType = TransactionType.TRANSFER;
+            IdempotencyKey idempotencyKey = IdempotencyKey.of(request.getIdempotencyKey());
+            Currency currency = Currency.of(request.getCurrency());
+            Money amount = Money.of(request.getAmount(), currency);
+            TransactionId transactionId = TransactionId.generate();
+            AccountId sourceAccountId = AccountId.of(request.getSourceAccountId());
+            AccountId targetAccountId = AccountId.of(request.getTargetAccountId());
+            CustomerId authenticatedId = CustomerId.of(authResponse.getCustomerId());
+
+            BooleanResponse tokenValidityResponse = authService.validateToken(new ValidateTokenRequest(sessionToken));
+            boolean isValidToken = tokenValidityResponse.value();
+            if (authenticatedId == null || !isValidToken) {
+                String failureReason = String.format(
+                        "Token: %s; Validity: %s; User: %s;",
+                        request.getCurrentSessionToken(),
+                        isValidToken,
+                        authenticatedId
+                );
+                GetFailureTransactionRequest getFailureTransactionRequest = new GetFailureTransactionRequest(
+                        transactionType.getTransactionName(), failureReason, OperationStatus.FAILURE.getValue()
+                );
+
+                return transactionService.getFailureResponse(getFailureTransactionRequest);
+            }
+
+            GetCachedResponseFromIdRequest getCachedResponseFromIdRequest = new GetCachedResponseFromIdRequest(
+                    authenticatedId.getValue(), idempotencyKey.getValue()
+            );
+            CachedResponse cachedResponse = authService.getCachedResponseFromId(getCachedResponseFromIdRequest);
+            if (cachedResponse != null) {
+                TransactionResponse transactionResponse = gson.fromJson(
+                        cachedResponse.getResponseJson(), TransactionResponse.class
+                );
+
+                return transactionResponse;
+            }
+
             Account sourceAccount = accountRepository.findById(sourceAccountId);
 
             boolean isOwnedByAuthenticatedCustomer = sourceAccount.getOwnerId().equals(authenticatedId);
@@ -465,7 +467,7 @@ public class AccountServiceImpl implements AccountService {
 
             return finalTransactionResponse;
 
-        } catch (IllegalArgumentException | IllegalStateException | AccountNotFoundException e) {
+        } catch (IllegalArgumentException | IllegalStateException | AccountNotFoundException | JsonSyntaxException e) {
             OperationStatus operationStatus = OperationStatus.of(
                     "FAILURE",
                     false,
@@ -487,38 +489,34 @@ public class AccountServiceImpl implements AccountService {
         //      Load account
         //      Authorize privs
         //      Return balance from account entity
-
-        SystemDateTimeProvider time = new SystemDateTimeProvider();
-
         String sessionToken = request.getCurrentSessionToken();
-        AccountId accountId = AccountId.of(request.getAccountId());
         AuthResponse authResponse = authService.authenticate(new AuthRequest(sessionToken));
-        CustomerId authenticatedId = CustomerId.of(authResponse.getCustomerId());
-
-        BooleanResponse tokenValidityResponse = authService.validateToken(new ValidateTokenRequest(sessionToken));
-        boolean isValidToken = tokenValidityResponse.value();
-        if (authenticatedId == null || !isValidToken) {
-            String failureReason = String.format(
-                    "Token: %s; Validity: %s; User: %s;",
-                    request.getCurrentSessionToken(),
-                    isValidToken,
-                    authenticatedId
-            );
-
-            return AccountMapper.failureResponseBalance(failureReason, OperationStatus.FAILURE);
-        }
 
         try {
+            AccountId accountId = AccountId.of(request.getAccountId());
+            CustomerId authenticatedId = CustomerId.of(authResponse.getCustomerId());
+
+            BooleanResponse tokenValidityResponse = authService.validateToken(new ValidateTokenRequest(sessionToken));
+            boolean isValidToken = tokenValidityResponse.value();
+            if (authenticatedId == null || !isValidToken) {
+                String failureReason = String.format(
+                        "Token: %s; Validity: %s; User: %s;",
+                        request.getCurrentSessionToken(),
+                        isValidToken,
+                        authenticatedId
+                );
+
+                return AccountMapper.failureResponseBalance(failureReason, OperationStatus.FAILURE);
+            }
+
             Account account = accountRepository.findById(accountId);
 
             boolean isOwnedByAuthenticatedCustomer = account.getOwnerId().equals(authenticatedId);
-            boolean isExistingAccount = account != null;
-            if (!isExistingAccount || !isOwnedByAuthenticatedCustomer) {
+            if (!isOwnedByAuthenticatedCustomer) {
                 String failureReason = String.format(
-                        "Account: %s; Owned: %; Exists: %s; User: %s;",
+                        "Account: %s; Owned: %; User: %s;",
                         request.getAccountId(),
                         isOwnedByAuthenticatedCustomer,
-                        isExistingAccount,
                         authenticatedId
                 );
 
@@ -529,7 +527,7 @@ public class AccountServiceImpl implements AccountService {
 
             return balanceResponse;
 
-        } catch (AccountNotFoundException e) {
+        } catch (IllegalArgumentException | AccountNotFoundException e) {
             OperationStatus operationStatus = OperationStatus.of(
                     "FAILURE",
                     false,
@@ -547,35 +545,51 @@ public class AccountServiceImpl implements AccountService {
         //      Authorize privs
         //      Fetch accounts from repository
         //      Return list of responses
-
-        SystemDateTimeProvider time = new SystemDateTimeProvider();
-
         String sessionToken = request.getCurrentSessionToken();
         AuthResponse authResponse = authService.authenticate(new AuthRequest(sessionToken));
-        CustomerId authenticatedId = CustomerId.of(authResponse.getCustomerId());
 
-        BooleanResponse tokenValidityResponse = authService.validateToken(new ValidateTokenRequest(sessionToken));
-        boolean isValidToken = tokenValidityResponse.value();
-        if (authenticatedId == null || !isValidToken) {
-            String failureReason = String.format(
-                    "Token: %s; Validity: %s; User: %s;",
-                    request.getCurrentSessionToken(),
-                    isValidToken,
-                    authenticatedId
+        try {
+            CustomerId authenticatedId = CustomerId.of(authResponse.getCustomerId());
+
+            BooleanResponse tokenValidityResponse = authService.validateToken(new ValidateTokenRequest(sessionToken));
+            boolean isValidToken = tokenValidityResponse.value();
+            if (authenticatedId == null || !isValidToken) {
+                String failureReason = String.format(
+                        "Token: %s; Validity: %s; User: %s;",
+                        request.getCurrentSessionToken(),
+                        isValidToken,
+                        authenticatedId
+                );
+
+                return List.of(AccountMapper.failureResponse(
+                        authResponse.getCustomerId(),
+                        OperationStatus.FAILURE)
+                );
+            }
+
+            List<Account> accounts = accountRepository.findByCustomerId(authenticatedId);
+            List<AccountResponse> response = new ArrayList<>();
+            for (Account account : accounts) {
+                if (account.getOwnerId().equals(authenticatedId)) {
+                    response.add(AccountMapper.toResponse(account, OperationStatus.UNKNOWN));
+                }
+            }
+
+            return response;
+
+        } catch (IllegalArgumentException | AccountNotFoundException e) {
+            OperationStatus operationStatus = OperationStatus.of(
+                    "FAILURE",
+                    false,
+                    true,
+                    e.toString()
             );
 
-            return List.of(AccountMapper.failureResponse(failureReason, OperationStatus.FAILURE));
+            return List.of(AccountMapper.failureResponse(
+                    authResponse.getCustomerId(),
+                    operationStatus)
+            );
         }
-
-        List<Account> accounts = accountRepository.findByCustomerId(authenticatedId);
-        List<AccountResponse> response = new ArrayList<>();
-        for (Account account : accounts) {
-            if (account.getOwnerId().equals(authenticatedId)) {
-                response.add(AccountMapper.toResponse(account, OperationStatus.UNKNOWN));
-            }
-        }
-
-        return response;
     }
 
     @Override
@@ -583,52 +597,51 @@ public class AccountServiceImpl implements AccountService {
         SystemDateTimeProvider time = new SystemDateTimeProvider();
 
         String sessionToken = request.getCurrentSessionToken();
-        AccountId accountId = AccountId.of(request.getAccountId());
-        IdempotencyKey idempotencyKey = IdempotencyKey.of(request.getIdempotencyKey());
         AuthResponse authResponse = authService.authenticate(new AuthRequest(sessionToken));
-        CustomerId authenticatedId = CustomerId.of(authResponse.getCustomerId());
-
-        BooleanResponse tokenValidityResponse = authService.validateToken(new ValidateTokenRequest(sessionToken));
-        boolean isValidToken = tokenValidityResponse.value();
-        if (authenticatedId == null || !isValidToken) {
-            String failureReason = String.format(
-                    "Token: %s; Validity: %s; User: %s;",
-                    request.getCurrentSessionToken(),
-                    isValidToken,
-                    authenticatedId
-            );
-
-            return new AccountStatusResponse(
-                    null,
-                    OperationStatus.FAILURE.getValue(),
-                    failureReason
-            );
-        }
-
-        GetCachedResponseFromIdRequest getCachedResponseFromIdRequest = new GetCachedResponseFromIdRequest(
-                authenticatedId.getValue(),
-                idempotencyKey.getValue()
-        );
-        CachedResponse cachedResponse = authService.getCachedResponseFromId(getCachedResponseFromIdRequest);
-        if (cachedResponse != null) {
-            AccountStatusResponse accountStatusResponse = gson.fromJson(
-                    cachedResponse.getResponseJson(), AccountStatusResponse.class
-            );
-
-            return accountStatusResponse;
-        }
 
         try {
+            AccountId accountId = AccountId.of(request.getAccountId());
+            IdempotencyKey idempotencyKey = IdempotencyKey.of(request.getIdempotencyKey());
+            CustomerId authenticatedId = CustomerId.of(authResponse.getCustomerId());
+
+            BooleanResponse tokenValidityResponse = authService.validateToken(new ValidateTokenRequest(sessionToken));
+            boolean isValidToken = tokenValidityResponse.value();
+            if (authenticatedId == null || !isValidToken) {
+                String failureReason = String.format(
+                        "Token: %s; Validity: %s; User: %s;",
+                        request.getCurrentSessionToken(),
+                        isValidToken,
+                        authenticatedId
+                );
+
+                return new AccountStatusResponse(
+                        null,
+                        OperationStatus.FAILURE.getValue(),
+                        failureReason
+                );
+            }
+
+            GetCachedResponseFromIdRequest getCachedResponseFromIdRequest = new GetCachedResponseFromIdRequest(
+                    authenticatedId.getValue(),
+                    idempotencyKey.getValue()
+            );
+            CachedResponse cachedResponse = authService.getCachedResponseFromId(getCachedResponseFromIdRequest);
+            if (cachedResponse != null) {
+                AccountStatusResponse accountStatusResponse = gson.fromJson(
+                        cachedResponse.getResponseJson(), AccountStatusResponse.class
+                );
+
+                return accountStatusResponse;
+            }
+
             Account account = accountRepository.findById(accountId);
 
-            boolean isExistingAccount = account != null;
             boolean isOwnedByAuthenticatedCustomer = account.getOwnerId().equals(authenticatedId);
-            if (!isExistingAccount || !isOwnedByAuthenticatedCustomer) {
+            if (!isOwnedByAuthenticatedCustomer) {
                 String failureReason = String.format(
-                        "Account: %s; Owned: %; Exists: %s; User: %s;",
+                        "Account: %s; Owned: %; User: %s;",
                         request.getAccountId(),
                         isOwnedByAuthenticatedCustomer,
-                        isExistingAccount,
                         authenticatedId
                 );
 
@@ -658,7 +671,7 @@ public class AccountServiceImpl implements AccountService {
 
             return response;
 
-        } catch (IllegalStateException | AccountNotFoundException e) {
+        } catch (IllegalStateException | AccountNotFoundException | JsonSyntaxException e) {
             OperationStatus operationStatus = OperationStatus.of(
                     "FAILURE",
                     false,
@@ -679,51 +692,50 @@ public class AccountServiceImpl implements AccountService {
         SystemDateTimeProvider time = new SystemDateTimeProvider();
 
         String sessionToken = request.getCurrentSessionToken();
-        AccountId accountId = AccountId.of(request.getAccountId());
-        IdempotencyKey idempotencyKey = IdempotencyKey.of(request.getIdempotencyKey());
         AuthResponse authResponse = authService.authenticate(new AuthRequest(sessionToken));
-        CustomerId authenticatedId = CustomerId.of(authResponse.getCustomerId());
-
-        BooleanResponse tokenValidityResponse =  authService.validateToken(new ValidateTokenRequest(sessionToken));
-        boolean isValidToken = tokenValidityResponse.value();
-        if (authenticatedId == null || !isValidToken) {
-            String failureReason = String.format(
-                    "Token: %s; Validity: %s; User: %s;",
-                    request.getCurrentSessionToken(),
-                    isValidToken,
-                    authenticatedId
-            );
-
-            return new AccountStatusResponse(
-                    null,
-                    OperationStatus.FAILURE.getValue(),
-                    failureReason
-            );
-        }
-
-        GetCachedResponseFromIdRequest getCachedResponseFromIdRequest = new GetCachedResponseFromIdRequest(
-                authenticatedId.getValue(), idempotencyKey.getValue()
-        );
-        CachedResponse cachedResponse = authService.getCachedResponseFromId(getCachedResponseFromIdRequest);
-        if (cachedResponse != null) {
-            AccountStatusResponse accountStatusResponse = gson.fromJson(
-                    cachedResponse.getResponseJson(), AccountStatusResponse.class
-            );
-
-            return accountStatusResponse;
-        }
 
         try {
+            AccountId accountId = AccountId.of(request.getAccountId());
+            IdempotencyKey idempotencyKey = IdempotencyKey.of(request.getIdempotencyKey());
+            CustomerId authenticatedId = CustomerId.of(authResponse.getCustomerId());
+
+            BooleanResponse tokenValidityResponse =  authService.validateToken(new ValidateTokenRequest(sessionToken));
+            boolean isValidToken = tokenValidityResponse.value();
+            if (authenticatedId == null || !isValidToken) {
+                String failureReason = String.format(
+                        "Token: %s; Validity: %s; User: %s;",
+                        request.getCurrentSessionToken(),
+                        isValidToken,
+                        authenticatedId
+                );
+
+                return new AccountStatusResponse(
+                        null,
+                        OperationStatus.FAILURE.getValue(),
+                        failureReason
+                );
+            }
+
+            GetCachedResponseFromIdRequest getCachedResponseFromIdRequest = new GetCachedResponseFromIdRequest(
+                    authenticatedId.getValue(), idempotencyKey.getValue()
+            );
+            CachedResponse cachedResponse = authService.getCachedResponseFromId(getCachedResponseFromIdRequest);
+            if (cachedResponse != null) {
+                AccountStatusResponse accountStatusResponse = gson.fromJson(
+                        cachedResponse.getResponseJson(), AccountStatusResponse.class
+                );
+
+                return accountStatusResponse;
+            }
+
             Account account = accountRepository.findById(accountId);
 
-            boolean isExistingAccount = account != null;
             boolean isOwnedByAuthenticatedCustomer = account.getOwnerId().equals(authenticatedId);
-            if (!isExistingAccount || !isOwnedByAuthenticatedCustomer) {
+            if (!isOwnedByAuthenticatedCustomer) {
                 String failureReason = String.format(
-                        "Account: %s; Owned: %; Exists: %s; User: %s;",
+                        "Account: %s; Owned: %; User: %s;",
                         request.getAccountId(),
                         isOwnedByAuthenticatedCustomer,
-                        isExistingAccount,
                         authenticatedId
                 );
 
@@ -753,7 +765,7 @@ public class AccountServiceImpl implements AccountService {
 
             return response;
 
-        } catch (IllegalStateException | IllegalArgumentException | AccountNotFoundException e) {
+        } catch (IllegalStateException | IllegalArgumentException | AccountNotFoundException | JsonSyntaxException e) {
             OperationStatus operationStatus = OperationStatus.of(
                     "FAILURE",
                     false,
@@ -774,50 +786,49 @@ public class AccountServiceImpl implements AccountService {
         SystemDateTimeProvider time = new SystemDateTimeProvider();
 
         String sessionToken = request.getCurrentSessionToken();
-        AccountId accountId = AccountId.of(request.getAccountId());
-        IdempotencyKey idempotencyKey = IdempotencyKey.of(request.getIdempotencyKey());
         AuthResponse authResponse = authService.authenticate(new AuthRequest(sessionToken));
-        CustomerId authenticatedId = CustomerId.of(authResponse.getCustomerId());
-
-        BooleanResponse tokenValidityResponse = authService.validateToken(new ValidateTokenRequest(sessionToken));
-        boolean isValidToken = tokenValidityResponse.value();
-        if (authenticatedId == null || !isValidToken) {
-            String failureReason = String.format(
-                    "Token: %s; Validity: %s; User: %s;",
-                    request.getCurrentSessionToken(),
-                    isValidToken,
-                    authenticatedId
-            );
-
-            return new AccountStatusResponse(
-                    null,
-                    OperationStatus.FAILURE.getValue(),
-                    failureReason
-            );
-        }
-        GetCachedResponseFromIdRequest getCachedResponseFromIdRequest = new GetCachedResponseFromIdRequest(
-                authenticatedId.getValue(), idempotencyKey.getValue()
-        );
-        CachedResponse cachedResponse = authService.getCachedResponseFromId(getCachedResponseFromIdRequest);
-        if (cachedResponse != null) {
-            AccountStatusResponse accountStatusResponse = gson.fromJson(
-                    cachedResponse.getResponseJson(), AccountStatusResponse.class
-            );
-
-            return accountStatusResponse;
-        }
 
         try {
+            AccountId accountId = AccountId.of(request.getAccountId());
+            IdempotencyKey idempotencyKey = IdempotencyKey.of(request.getIdempotencyKey());
+            CustomerId authenticatedId = CustomerId.of(authResponse.getCustomerId());
+
+            BooleanResponse tokenValidityResponse = authService.validateToken(new ValidateTokenRequest(sessionToken));
+            boolean isValidToken = tokenValidityResponse.value();
+            if (authenticatedId == null || !isValidToken) {
+                String failureReason = String.format(
+                        "Token: %s; Validity: %s; User: %s;",
+                        request.getCurrentSessionToken(),
+                        isValidToken,
+                        authenticatedId
+                );
+
+                return new AccountStatusResponse(
+                        null,
+                        OperationStatus.FAILURE.getValue(),
+                        failureReason
+                );
+            }
+            GetCachedResponseFromIdRequest getCachedResponseFromIdRequest = new GetCachedResponseFromIdRequest(
+                    authenticatedId.getValue(), idempotencyKey.getValue()
+            );
+            CachedResponse cachedResponse = authService.getCachedResponseFromId(getCachedResponseFromIdRequest);
+            if (cachedResponse != null) {
+                AccountStatusResponse accountStatusResponse = gson.fromJson(
+                        cachedResponse.getResponseJson(), AccountStatusResponse.class
+                );
+
+                return accountStatusResponse;
+            }
+
             Account account = accountRepository.findById(accountId);
 
-            boolean isExistingAccount = account != null;
             boolean isOwnedByAuthenticatedCustomer = account.getOwnerId().equals(authenticatedId);
-            if (!isExistingAccount || !isOwnedByAuthenticatedCustomer) {
+            if (!isOwnedByAuthenticatedCustomer) {
                 String failureReason = String.format(
-                        "Account: %s; Owned: %; Exists: %s; User: %s;",
+                        "Account: %s; Owned: %; User: %s;",
                         request.getAccountId(),
                         isOwnedByAuthenticatedCustomer,
-                        isExistingAccount,
                         authenticatedId
                 );
 
@@ -847,7 +858,7 @@ public class AccountServiceImpl implements AccountService {
 
             return response;
 
-        } catch (IllegalStateException | IllegalArgumentException | AccountNotFoundException e) {
+        } catch (IllegalStateException | IllegalArgumentException | AccountNotFoundException | JsonSyntaxException e) {
             OperationStatus operationStatus = OperationStatus.of(
                     "FAILURE",
                     false,
@@ -865,37 +876,34 @@ public class AccountServiceImpl implements AccountService {
     }
     @Override
     public AccountResponse getAccountDetails(GetAccountDetailsRequest request) {
-        SystemDateTimeProvider time = new SystemDateTimeProvider();
-
         String sessionToken = request.getCurrentSessionToken();
-        AccountId accountId = AccountId.of(request.getAccountId());
         AuthResponse authResponse = authService.authenticate(new AuthRequest(sessionToken));
-        CustomerId authenticatedId = CustomerId.of(authResponse.getCustomerId());
-
-        BooleanResponse tokenValidityResponse = authService.validateToken(new ValidateTokenRequest(sessionToken));
-        boolean isValidToken = tokenValidityResponse.value();
-        if (authenticatedId == null || !isValidToken) {
-            String failureReason = String.format(
-                    "Token: %s; Validity: %s; User: %s;",
-                    request.getCurrentSessionToken(),
-                    isValidToken,
-                    authenticatedId
-            );
-
-            return AccountMapper.failureResponse(failureReason, OperationStatus.FAILURE);
-        }
 
         try {
+            AccountId accountId = AccountId.of(request.getAccountId());
+            CustomerId authenticatedId = CustomerId.of(authResponse.getCustomerId());
+
+            BooleanResponse tokenValidityResponse = authService.validateToken(new ValidateTokenRequest(sessionToken));
+            boolean isValidToken = tokenValidityResponse.value();
+            if (authenticatedId == null || !isValidToken) {
+                String failureReason = String.format(
+                        "Token: %s; Validity: %s; User: %s;",
+                        request.getCurrentSessionToken(),
+                        isValidToken,
+                        authenticatedId
+                );
+
+                return AccountMapper.failureResponse(failureReason, OperationStatus.FAILURE);
+            }
+
             Account account = accountRepository.findById(accountId);
 
             boolean isOwnedByAuthenticatedCustomer = account.getOwnerId().equals(authenticatedId);
-            boolean isExistingAccount = account != null;
-            if (!isExistingAccount || !isOwnedByAuthenticatedCustomer) {
+            if (!isOwnedByAuthenticatedCustomer) {
                 String failureReason = String.format(
-                        "Account: %s; Owned: %; Exists: %s; User: %s;",
+                        "Account: %s; Owned: %; User: %s;",
                         request.getAccountId(),
                         isOwnedByAuthenticatedCustomer,
-                        isExistingAccount,
                         authenticatedId
                 );
 
@@ -906,7 +914,7 @@ public class AccountServiceImpl implements AccountService {
 
             return response;
 
-        } catch (Exception e) {
+        } catch (IllegalArgumentException | AccountNotFoundException | JsonSyntaxException e) {
             OperationStatus operationStatus = OperationStatus.of(
                     "FAILURE",
                     false,
@@ -914,7 +922,7 @@ public class AccountServiceImpl implements AccountService {
                     e.getMessage()
             );
 
-            return AccountMapper.failureResponse(authenticatedId.getValue(), operationStatus);
+            return AccountMapper.failureResponse(authResponse.getCustomerId(), operationStatus);
         }
     }
 }

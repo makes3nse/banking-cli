@@ -45,16 +45,21 @@ public class Customer {
                                     PasswordHasher hasher,
                                     LocalDateTime createdAt) {
 
-        return new Customer(
-                CustomerId.generate(),
-                Role.CUSTOMER,
-                CustomerStatus.ACTIVE,
-                name.trim(),
-                EmailAddress.of(email),
-                PhoneNumber.of(phone),
-                Password.fromRaw(rawPassword, hasher),
-                hasher,
-                createdAt);
+        try {
+            return new Customer(
+                    CustomerId.generate(),
+                    Role.CUSTOMER,
+                    CustomerStatus.ACTIVE,
+                    name.trim(),
+                    EmailAddress.of(email),
+                    PhoneNumber.of(phone),
+                    Password.fromRaw(rawPassword, hasher),
+                    hasher,
+                    createdAt);
+
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException(e);
+        }
     }
     public static Customer reconstitute(CustomerId id,
                                        Role role,
