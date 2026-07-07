@@ -446,7 +446,10 @@ public class CustomerServiceImpl implements CustomerService {
 
             Customer customer = customerRepository.findById(customerId);
 
-            return new BooleanResponse(PermissionChecker.canReturnOrRejectTransaction(customer));
+            return new BooleanResponse(
+                    PermissionChecker.canReturnOrRejectTransaction(customer),
+                    null
+            );
 
         } catch (CustomerNotFoundException | IllegalArgumentException e) {
             OperationStatus operationStatus = OperationStatus.of(
@@ -455,8 +458,8 @@ public class CustomerServiceImpl implements CustomerService {
                     true,
                     e.toString()
             );
-            // TODO -> change boolean DTO to store errorMessage
-            return new BooleanResponse(false);
+
+            return new BooleanResponse(false, operationStatus.getDescription());
         }
     }
 
@@ -473,7 +476,10 @@ public class CustomerServiceImpl implements CustomerService {
             boolean isValidPassword = customer.getPassword().matches(rawPassword, passwordHasher);
             boolean emailMatches = customer.getEmail().equals(emailAddress);
 
-            BooleanResponse booleanResponse = new BooleanResponse(isValidPassword && emailMatches);
+            BooleanResponse booleanResponse = new BooleanResponse(
+                    (isValidPassword && emailMatches),
+                    null
+            );
 
             return booleanResponse;
 
@@ -484,8 +490,8 @@ public class CustomerServiceImpl implements CustomerService {
                     true,
                     e.toString()
             );
-            // TODO -> change boolean DTO to store errorMessage
-            return new BooleanResponse(false);
+
+            return new BooleanResponse(false, operationStatus.getDescription());
         }
     }
 }
