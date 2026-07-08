@@ -59,15 +59,31 @@ public class AccountServiceImpl implements AccountService {
 
             BooleanResponse tokenValidityResponse = authService.validateToken(new ValidateTokenRequest(sessionToken));
             boolean isValidToken = tokenValidityResponse.value();
-            if (authenticatedId == null || !isValidToken) {
-                return AccountMapper.failureResponse(authenticatedId.toString(), OperationStatus.FAILURE);
+            if (!isValidToken) {
+                String failureReason = String.format(
+                        "Token: %s; IsValidToken: %s; User: %s;",
+                        request.getCurrentSessionToken(),
+                        isValidToken,
+                        authenticatedId // is not null, cause if it would be, CustomerId.of() would throw IllegalArgumentException
+                );
+                OperationStatus operationStatus = OperationStatus.of(
+                        "FAILURE",
+                        false,
+                        true,
+                        failureReason
+                );
+
+                return AccountMapper.failureResponse(authResponse.getCustomerId(), operationStatus);
             }
 
             GetCachedResponseFromIdRequest getCachedResponseFromIdRequest = new GetCachedResponseFromIdRequest(
                     authenticatedId.getValue(), idempotencyKey
             );
             CachedResponse cachedResponse = authService.getCachedResponseFromId(getCachedResponseFromIdRequest);
-            if (cachedResponse != null) {
+            if (cachedResponse.getErrorMessage() != null) {
+                System.err.println("Cache retrieval failed: " + cachedResponse.getErrorMessage());
+            }
+            if (cachedResponse.getErrorMessage() == null || cachedResponse.getResponseJson() != null) {
                 AccountResponse accountResponse = gson.fromJson(
                         cachedResponse.getResponseJson(),
                         AccountResponse.class
@@ -107,9 +123,10 @@ public class AccountServiceImpl implements AccountService {
                     response.getClass().getSimpleName()
             );
 
-            authService.saveCachedResponseFromId(saveCachedResponseFromIdRequest);
-            // ALSO, CHANGE ALL TRANSACTION_REPOSITORY DIRECT CALLS TO TRANSACTION_SERVICE CALLS,
-            //  IMPLEMENT ALL NEEDED INTERACTION IN RESPONSIBLE SERVICE, TALK VIA DTOs
+            BooleanResponse saved = authService.saveCachedResponseFromId(saveCachedResponseFromIdRequest);
+            if (!saved.value()) {
+                System.err.println("Cache save failed: " + saved.getErrorMessage());
+            }
 
             return response;
 
@@ -120,6 +137,7 @@ public class AccountServiceImpl implements AccountService {
                     false,
                     e.getMessage()
             );
+
             return AccountMapper.failureResponse(authResponse.getCustomerId(), operationStatus);
         }
     }
@@ -139,6 +157,7 @@ public class AccountServiceImpl implements AccountService {
 
         String sessionToken = request.getCurrentSessionToken();
         AuthResponse authResponse = authService.authenticate(new AuthRequest(sessionToken));
+        
         try {
 
             TransactionType transactionType = TransactionType.DEPOSIT;
@@ -150,9 +169,9 @@ public class AccountServiceImpl implements AccountService {
 
             BooleanResponse tokenValidityResponse = authService.validateToken(new ValidateTokenRequest(sessionToken));
             boolean isValidToken = tokenValidityResponse.value();
-            if (!isValidToken || authenticatedId == null) {
+            if (!isValidToken) {
                 String failureReason = String.format(
-                        "Token: %s; Validity: %s; User: %s;",
+                        "Token: %s; IsValidToken: %s; User: %s;",
                         request.getCurrentSessionToken(),
                         isValidToken,
                         authenticatedId
@@ -170,7 +189,10 @@ public class AccountServiceImpl implements AccountService {
                     authenticatedId.getValue(), request.getIdempotencyKey()
             );
             CachedResponse cachedResponse = authService.getCachedResponseFromId(getCachedResponseFromIdRequest);
-            if (cachedResponse != null) {
+            if (cachedResponse.getErrorMessage() != null) {
+                System.err.println("Cache retrieval failed: " + cachedResponse.getErrorMessage());
+            }
+            if (cachedResponse.getErrorMessage() == null || cachedResponse.getResponseJson() != null) {
                 TransactionResponse accountResponse = gson.fromJson(
                         cachedResponse.getResponseJson(),
                         TransactionResponse.class
@@ -225,7 +247,10 @@ public class AccountServiceImpl implements AccountService {
 
             );
 
-            authService.saveCachedResponseFromId(saveCachedResponseFromIdRequest);
+            BooleanResponse saved = authService.saveCachedResponseFromId(saveCachedResponseFromIdRequest);
+            if (!saved.value()) {
+                System.err.println("Cache save failed: " + saved.getErrorMessage());
+            }
 
             return finalTransactionResponse;
 
@@ -263,9 +288,9 @@ public class AccountServiceImpl implements AccountService {
 
             BooleanResponse tokenValidityResponse = authService.validateToken(new ValidateTokenRequest(sessionToken));
             boolean isValidToken = tokenValidityResponse.value();
-            if (authenticatedId == null || !isValidToken) {
+            if (!isValidToken) {
                 String failureReason = String.format(
-                        "Token: %s; Validity: %s; User: %s;",
+                        "Token: %s; IsValidToken: %s; User: %s;",
                         request.getCurrentSessionToken(),
                         isValidToken,
                         authenticatedId
@@ -284,7 +309,10 @@ public class AccountServiceImpl implements AccountService {
                     idempotencyKey.getValue()
             );
             CachedResponse cachedResponse = authService.getCachedResponseFromId(getCachedResponseFromIdRequest);
-            if (cachedResponse != null) {
+            if (cachedResponse.getErrorMessage() != null) {
+                System.err.println("Cache retrieval failed: " + cachedResponse.getErrorMessage());
+            }
+            if (cachedResponse.getErrorMessage() == null || cachedResponse.getResponseJson() != null) {
                 TransactionResponse transactionResponse = gson.fromJson(
                         cachedResponse.getResponseJson(),
                         TransactionResponse.class
@@ -339,7 +367,10 @@ public class AccountServiceImpl implements AccountService {
                     finalTransactionResponse.getClass().getSimpleName()
             );
 
-            authService.saveCachedResponseFromId(saveCachedResponseFromIdRequest);
+            BooleanResponse saved = authService.saveCachedResponseFromId(saveCachedResponseFromIdRequest);
+            if (!saved.value()) {
+                System.err.println("Cache save failed: " + saved.getErrorMessage());
+            }
 
             return finalTransactionResponse;
 
@@ -389,9 +420,9 @@ public class AccountServiceImpl implements AccountService {
 
             BooleanResponse tokenValidityResponse = authService.validateToken(new ValidateTokenRequest(sessionToken));
             boolean isValidToken = tokenValidityResponse.value();
-            if (authenticatedId == null || !isValidToken) {
+            if (!isValidToken) {
                 String failureReason = String.format(
-                        "Token: %s; Validity: %s; User: %s;",
+                        "Token: %s; IsValidToken: %s; User: %s;",
                         request.getCurrentSessionToken(),
                         isValidToken,
                         authenticatedId
@@ -407,7 +438,10 @@ public class AccountServiceImpl implements AccountService {
                     authenticatedId.getValue(), idempotencyKey.getValue()
             );
             CachedResponse cachedResponse = authService.getCachedResponseFromId(getCachedResponseFromIdRequest);
-            if (cachedResponse != null) {
+            if (cachedResponse.getErrorMessage() != null) {
+                System.err.println("Cache retrieval failed: " + cachedResponse.getErrorMessage());
+            }
+            if (cachedResponse.getErrorMessage() == null || cachedResponse.getResponseJson() != null) {
                 TransactionResponse transactionResponse = gson.fromJson(
                         cachedResponse.getResponseJson(), TransactionResponse.class
                 );
@@ -463,7 +497,10 @@ public class AccountServiceImpl implements AccountService {
                     finalTransactionResponse.getClass().getSimpleName()
             );
 
-            authService.saveCachedResponseFromId(saveCachedResponseFromIdRequest);
+            BooleanResponse saved = authService.saveCachedResponseFromId(saveCachedResponseFromIdRequest);
+            if (!saved.value()) {
+                System.err.println("Cache save failed: " + saved.getErrorMessage());
+            }
 
             return finalTransactionResponse;
 
@@ -498,9 +535,9 @@ public class AccountServiceImpl implements AccountService {
 
             BooleanResponse tokenValidityResponse = authService.validateToken(new ValidateTokenRequest(sessionToken));
             boolean isValidToken = tokenValidityResponse.value();
-            if (authenticatedId == null || !isValidToken) {
+            if (!isValidToken) {
                 String failureReason = String.format(
-                        "Token: %s; Validity: %s; User: %s;",
+                        "Token: %s; IsValidToken: %s; User: %s;",
                         request.getCurrentSessionToken(),
                         isValidToken,
                         authenticatedId
@@ -553,17 +590,23 @@ public class AccountServiceImpl implements AccountService {
 
             BooleanResponse tokenValidityResponse = authService.validateToken(new ValidateTokenRequest(sessionToken));
             boolean isValidToken = tokenValidityResponse.value();
-            if (authenticatedId == null || !isValidToken) {
+            if (!isValidToken) {
                 String failureReason = String.format(
-                        "Token: %s; Validity: %s; User: %s;",
+                        "Token: %s; IsValidToken: %s; User: %s;",
                         request.getCurrentSessionToken(),
                         isValidToken,
                         authenticatedId
                 );
+                OperationStatus operationStatus = OperationStatus.of(
+                        "FAILURE",
+                        false,
+                        true,
+                        failureReason
+                );
 
                 return List.of(AccountMapper.failureResponse(
                         authResponse.getCustomerId(),
-                        OperationStatus.FAILURE)
+                        operationStatus)
                 );
             }
 
@@ -606,9 +649,9 @@ public class AccountServiceImpl implements AccountService {
 
             BooleanResponse tokenValidityResponse = authService.validateToken(new ValidateTokenRequest(sessionToken));
             boolean isValidToken = tokenValidityResponse.value();
-            if (authenticatedId == null || !isValidToken) {
+            if (!isValidToken) {
                 String failureReason = String.format(
-                        "Token: %s; Validity: %s; User: %s;",
+                        "Token: %s; IsValidToken: %s; User: %s;",
                         request.getCurrentSessionToken(),
                         isValidToken,
                         authenticatedId
@@ -626,7 +669,10 @@ public class AccountServiceImpl implements AccountService {
                     idempotencyKey.getValue()
             );
             CachedResponse cachedResponse = authService.getCachedResponseFromId(getCachedResponseFromIdRequest);
-            if (cachedResponse != null) {
+            if (cachedResponse.getErrorMessage() != null) {
+                System.err.println("Cache retrieval failed: " + cachedResponse.getErrorMessage());
+            }
+            if (cachedResponse.getErrorMessage() == null || cachedResponse.getResponseJson() != null) {
                 AccountStatusResponse accountStatusResponse = gson.fromJson(
                         cachedResponse.getResponseJson(), AccountStatusResponse.class
                 );
@@ -667,7 +713,10 @@ public class AccountServiceImpl implements AccountService {
                     response.getClass().getSimpleName()
             );
 
-            authService.saveCachedResponseFromId(saveCachedResponseFromIdRequest);
+            BooleanResponse saved = authService.saveCachedResponseFromId(saveCachedResponseFromIdRequest);
+            if (!saved.value()) {
+                System.err.println("Cache save failed: " + saved.getErrorMessage());
+            }
 
             return response;
 
@@ -701,9 +750,9 @@ public class AccountServiceImpl implements AccountService {
 
             BooleanResponse tokenValidityResponse =  authService.validateToken(new ValidateTokenRequest(sessionToken));
             boolean isValidToken = tokenValidityResponse.value();
-            if (authenticatedId == null || !isValidToken) {
+            if (!isValidToken) {
                 String failureReason = String.format(
-                        "Token: %s; Validity: %s; User: %s;",
+                        "Token: %s; IsValidToken: %s; User: %s;",
                         request.getCurrentSessionToken(),
                         isValidToken,
                         authenticatedId
@@ -720,7 +769,10 @@ public class AccountServiceImpl implements AccountService {
                     authenticatedId.getValue(), idempotencyKey.getValue()
             );
             CachedResponse cachedResponse = authService.getCachedResponseFromId(getCachedResponseFromIdRequest);
-            if (cachedResponse != null) {
+            if (cachedResponse.getErrorMessage() != null) {
+                System.err.println("Cache retrieval failed: " + cachedResponse.getErrorMessage());
+            }
+            if (cachedResponse.getErrorMessage() == null || cachedResponse.getResponseJson() != null) {
                 AccountStatusResponse accountStatusResponse = gson.fromJson(
                         cachedResponse.getResponseJson(), AccountStatusResponse.class
                 );
@@ -761,7 +813,10 @@ public class AccountServiceImpl implements AccountService {
                     response.getClass().getSimpleName()
             );
 
-            authService.saveCachedResponseFromId(saveCachedResponseFromIdRequest);
+            BooleanResponse saved = authService.saveCachedResponseFromId(saveCachedResponseFromIdRequest);
+            if (!saved.value()) {
+                System.err.println("Cache save failed: " + saved.getErrorMessage());
+            }
 
             return response;
 
@@ -795,9 +850,9 @@ public class AccountServiceImpl implements AccountService {
 
             BooleanResponse tokenValidityResponse = authService.validateToken(new ValidateTokenRequest(sessionToken));
             boolean isValidToken = tokenValidityResponse.value();
-            if (authenticatedId == null || !isValidToken) {
+            if (!isValidToken) {
                 String failureReason = String.format(
-                        "Token: %s; Validity: %s; User: %s;",
+                        "Token: %s; IsValidToken: %s; User: %s;",
                         request.getCurrentSessionToken(),
                         isValidToken,
                         authenticatedId
@@ -813,7 +868,10 @@ public class AccountServiceImpl implements AccountService {
                     authenticatedId.getValue(), idempotencyKey.getValue()
             );
             CachedResponse cachedResponse = authService.getCachedResponseFromId(getCachedResponseFromIdRequest);
-            if (cachedResponse != null) {
+            if (cachedResponse.getErrorMessage() != null) {
+                System.err.println("Cache retrieval failed: " + cachedResponse.getErrorMessage());
+            }
+            if (cachedResponse.getErrorMessage() == null || cachedResponse.getResponseJson() != null) {
                 AccountStatusResponse accountStatusResponse = gson.fromJson(
                         cachedResponse.getResponseJson(), AccountStatusResponse.class
                 );
@@ -854,7 +912,10 @@ public class AccountServiceImpl implements AccountService {
                     response.getClass().getSimpleName()
             );
 
-            authService.saveCachedResponseFromId(saveCachedResponseFromIdRequest);
+            BooleanResponse saved = authService.saveCachedResponseFromId(saveCachedResponseFromIdRequest);
+            if (!saved.value()) {
+                System.err.println("Cache save failed: " + saved.getErrorMessage());
+            }
 
             return response;
 
@@ -885,15 +946,21 @@ public class AccountServiceImpl implements AccountService {
 
             BooleanResponse tokenValidityResponse = authService.validateToken(new ValidateTokenRequest(sessionToken));
             boolean isValidToken = tokenValidityResponse.value();
-            if (authenticatedId == null || !isValidToken) {
+            if (!isValidToken) {
                 String failureReason = String.format(
-                        "Token: %s; Validity: %s; User: %s;",
+                        "Token: %s; IsValidToken: %s; User: %s;",
                         request.getCurrentSessionToken(),
                         isValidToken,
                         authenticatedId
                 );
+                OperationStatus operationStatus = OperationStatus.of(
+                        "FAILURE",
+                        false,
+                        true,
+                        failureReason
+                );
 
-                return AccountMapper.failureResponse(failureReason, OperationStatus.FAILURE);
+                return AccountMapper.failureResponse(authResponse.getCustomerId(), operationStatus);
             }
 
             Account account = accountRepository.findById(accountId);
