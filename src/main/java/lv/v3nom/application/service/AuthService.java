@@ -13,6 +13,6 @@ public interface AuthService {
     AuthResponse authenticate(AuthRequest tokenValue);
     CachedResponse getCachedResponseFromId(GetCachedResponseFromIdRequest request);
     CachedResponse getCachedResponseFromEmail(GetCachedResponseFromEmailRequest request);
-    void saveCachedResponseFromId(SaveCachedResponseFromIdRequest request);
-    void saveCachedResponseFromEmail(SaveCachedResponseFromEmailRequest request);
+    BooleanResponse saveCachedResponseFromId(SaveCachedResponseFromIdRequest request);
+    BooleanResponse saveCachedResponseFromEmail(SaveCachedResponseFromEmailRequest request);
 }
