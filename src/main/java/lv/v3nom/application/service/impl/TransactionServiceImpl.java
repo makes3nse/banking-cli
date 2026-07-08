@@ -49,9 +49,9 @@ public class TransactionServiceImpl implements TransactionService{
 
             BooleanResponse tokenValidityResponse = authService.validateToken(new ValidateTokenRequest(sessionToken));
             boolean isValidToken = tokenValidityResponse.value();
-            if (authenticatedId == null || !isValidToken) {
+            if (!isValidToken) {
                 String failureReason = String.format(
-                        "Token: %s; Validity: %s; User: %s;",
+                        "Token: %s; IsValidToken: %s; User: %s;",
                         request.getCurrentSessionToken(),
                         isValidToken,
                         authenticatedId
@@ -113,9 +113,9 @@ public class TransactionServiceImpl implements TransactionService{
 
             BooleanResponse isValidTokenResponse = authService.validateToken(new ValidateTokenRequest(sessionToken));
             boolean isValidToken = isValidTokenResponse.value();
-            if (authenticatedId == null || !isValidToken) {
+            if (!isValidToken) {
                 String failureReason = String.format(
-                        "Token: %s; Validity: %s; User: %s;",
+                        "Token: %s; IsValidToken: %s; User: %s;",
                         request.getCurrentSessionToken(),
                         isValidToken,
                         authenticatedId
