@@ -12,6 +12,10 @@ public class FixedDateTimeProvider implements DateTimeProvider {
     }
 
     @Override
+    public LocalDateTime of(int year, int month, int dayOfMonth, int hour, int minute, int second) {
+        return LocalDateTime.of(year, month, dayOfMonth, hour, minute, second);
+    }
+    @Override
     public LocalDateTime now() {
         return fixedTime;
     }
