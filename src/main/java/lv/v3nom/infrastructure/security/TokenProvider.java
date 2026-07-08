@@ -13,11 +13,13 @@ public class TokenProvider {
     private static final long TOKEN_VALIDITY_HOURS = 24;
 
     public Token generateToken(CustomerId customerId, LocalDateTime now) {
+        if (customerId == null) {
+            throw new IllegalArgumentException("Cannot generate a session token using null");
+        }
+
         byte[] randomBytes = new byte[TOKEN_BYTES];
         SECURE_RANDOM.nextBytes(randomBytes);
-
         String tokenValue = Base64.getUrlEncoder().withoutPadding().encodeToString(randomBytes);
-
         LocalDateTime expiry = now.plusHours(TOKEN_VALIDITY_HOURS);
 
         return Token.create(tokenValue, expiry, customerId, now);
