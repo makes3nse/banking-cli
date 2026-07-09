@@ -69,9 +69,6 @@ public class Account {
 
     // Business logic
     public void deposit(Money amount, LocalDateTime updatedAt) {
-        if (amount.isNegativeOrZero()) {
-            throw new IllegalArgumentException("Deposit amount must be positive");
-        }
         if (accountStatus != AccountStatus.ACTIVE) {
             throw new IllegalStateException("Deposits are disabled for " + accountStatus.getValue() + " account");
         }
@@ -85,9 +82,6 @@ public class Account {
         this.updatedAt = updatedAt;
     }
     public void withdraw(Money amount, LocalDateTime updatedAt) {
-        if (amount.isNegativeOrZero()) {
-            throw new IllegalArgumentException("Withdraw amount must be positive");
-        }
         if (accountStatus != AccountStatus.ACTIVE) {
             throw new IllegalArgumentException("Withdraws are disabled for " + accountStatus.getValue() + " account");
         }
@@ -104,9 +98,6 @@ public class Account {
         this.updatedAt = updatedAt;
     }
     public void transferToAccount(Account target, Money amount, LocalDateTime updatedAt) {
-        if (amount.isNegativeOrZero()) {
-            throw new IllegalArgumentException("Transfer amount must be positive");
-        }
         if (this.accountId.equals(target.accountId)) {
             throw new IllegalArgumentException("Cannot send self");
         }
