@@ -98,9 +98,6 @@ public class Customer {
             throw new IllegalStateException(
                     "Email change available only for ACTIVE customer accounts");
         }
-        if (newEmail == null) {
-            throw new IllegalArgumentException("New email cannot be null");
-        }
         if (newEmail.equals(this.email)) {
             throw new IllegalArgumentException("New email cannot be same");
         }
@@ -110,9 +107,6 @@ public class Customer {
         if (this.customerStatus != CustomerStatus.ACTIVE) {
             throw new IllegalStateException(
                     "Phone number change available only for ACTIVE customer accounts");
-        }
-        if (newPhoneNumber == null) {
-            throw new IllegalArgumentException("New phone number cannot be null");
         }
         if (newPhoneNumber.equals(this.phoneNumber)) {
             throw new IllegalArgumentException("New phone number cannot be same");
