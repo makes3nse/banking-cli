@@ -83,7 +83,7 @@ public class AccountServiceImpl implements AccountService {
             if (cachedResponse.getErrorMessage() != null) {
                 System.err.println("Cache retrieval failed: " + cachedResponse.getErrorMessage());
             }
-            if (cachedResponse.getErrorMessage() == null || cachedResponse.getResponseJson() != null) {
+            if (cachedResponse.getErrorMessage() == null && cachedResponse.getResponseJson() != null) {
                 AccountResponse accountResponse = gson.fromJson(
                         cachedResponse.getResponseJson(),
                         AccountResponse.class
@@ -192,7 +192,7 @@ public class AccountServiceImpl implements AccountService {
             if (cachedResponse.getErrorMessage() != null) {
                 System.err.println("Cache retrieval failed: " + cachedResponse.getErrorMessage());
             }
-            if (cachedResponse.getErrorMessage() == null || cachedResponse.getResponseJson() != null) {
+            if (cachedResponse.getErrorMessage() == null && cachedResponse.getResponseJson() != null) {
                 TransactionResponse accountResponse = gson.fromJson(
                         cachedResponse.getResponseJson(),
                         TransactionResponse.class
@@ -312,7 +312,7 @@ public class AccountServiceImpl implements AccountService {
             if (cachedResponse.getErrorMessage() != null) {
                 System.err.println("Cache retrieval failed: " + cachedResponse.getErrorMessage());
             }
-            if (cachedResponse.getErrorMessage() == null || cachedResponse.getResponseJson() != null) {
+            if (cachedResponse.getErrorMessage() == null && cachedResponse.getResponseJson() != null) {
                 TransactionResponse transactionResponse = gson.fromJson(
                         cachedResponse.getResponseJson(),
                         TransactionResponse.class
@@ -441,7 +441,7 @@ public class AccountServiceImpl implements AccountService {
             if (cachedResponse.getErrorMessage() != null) {
                 System.err.println("Cache retrieval failed: " + cachedResponse.getErrorMessage());
             }
-            if (cachedResponse.getErrorMessage() == null || cachedResponse.getResponseJson() != null) {
+            if (cachedResponse.getErrorMessage() == null && cachedResponse.getResponseJson() != null) {
                 TransactionResponse transactionResponse = gson.fromJson(
                         cachedResponse.getResponseJson(), TransactionResponse.class
                 );
@@ -625,7 +625,7 @@ public class AccountServiceImpl implements AccountService {
                     "FAILURE",
                     false,
                     true,
-                    e.toString()
+                    e.getMessage()
             );
 
             return List.of(AccountMapper.failureResponse(
@@ -672,7 +672,7 @@ public class AccountServiceImpl implements AccountService {
             if (cachedResponse.getErrorMessage() != null) {
                 System.err.println("Cache retrieval failed: " + cachedResponse.getErrorMessage());
             }
-            if (cachedResponse.getErrorMessage() == null || cachedResponse.getResponseJson() != null) {
+            if (cachedResponse.getErrorMessage() == null && cachedResponse.getResponseJson() != null) {
                 AccountStatusResponse accountStatusResponse = gson.fromJson(
                         cachedResponse.getResponseJson(), AccountStatusResponse.class
                 );
@@ -772,7 +772,7 @@ public class AccountServiceImpl implements AccountService {
             if (cachedResponse.getErrorMessage() != null) {
                 System.err.println("Cache retrieval failed: " + cachedResponse.getErrorMessage());
             }
-            if (cachedResponse.getErrorMessage() == null || cachedResponse.getResponseJson() != null) {
+            if (cachedResponse.getErrorMessage() == null && cachedResponse.getResponseJson() != null) {
                 AccountStatusResponse accountStatusResponse = gson.fromJson(
                         cachedResponse.getResponseJson(), AccountStatusResponse.class
                 );
@@ -871,7 +871,7 @@ public class AccountServiceImpl implements AccountService {
             if (cachedResponse.getErrorMessage() != null) {
                 System.err.println("Cache retrieval failed: " + cachedResponse.getErrorMessage());
             }
-            if (cachedResponse.getErrorMessage() == null || cachedResponse.getResponseJson() != null) {
+            if (cachedResponse.getErrorMessage() == null && cachedResponse.getResponseJson() != null) {
                 AccountStatusResponse accountStatusResponse = gson.fromJson(
                         cachedResponse.getResponseJson(), AccountStatusResponse.class
                 );
