@@ -119,7 +119,7 @@ public class AuthServiceImpl implements AuthService {
                     "FAILURE",
                     false,
                     true,
-                    e.toString()
+                    e.getMessage()
             );
             LogInResponse logInResponse = new LogInResponse(
                     null,
@@ -184,7 +184,7 @@ public class AuthServiceImpl implements AuthService {
         } catch (IllegalArgumentException | JsonSyntaxException e) {
             BooleanResponse booleanResponse = new BooleanResponse(
                     false,
-                    e.toString()
+                    e.getMessage()
             );
 
             return booleanResponse;
@@ -223,7 +223,7 @@ public class AuthServiceImpl implements AuthService {
                     "FAILURE",
                     false,
                     true,
-                    e.toString()
+                    e.getMessage()
             );
             CachedResponse cachedResponse = new CachedResponse(
                     null,
@@ -256,7 +256,7 @@ public class AuthServiceImpl implements AuthService {
                     "FAILURE",
                     false,
                     true,
-                    e.toString()
+                    e.getMessage()
             );
             CachedResponse cachedResponse = new CachedResponse(
                     null,
