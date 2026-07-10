@@ -89,7 +89,7 @@ public class TransactionServiceImpl implements TransactionService{
                     "FAILURE",
                     false,
                     true,
-                    e.toString()
+                    e.getMessage()
             );
             TransactionHistoryResponse transactionHistoryResponse = new TransactionHistoryResponse(
                     null,
@@ -169,7 +169,7 @@ public class TransactionServiceImpl implements TransactionService{
                     "FAILURE",
                     false,
                     true,
-                    e.toString()
+                    e.getMessage()
             );
             return TransactionMapper.failureResponse(
                     null,
@@ -194,7 +194,7 @@ public class TransactionServiceImpl implements TransactionService{
                     "FAILURE",
                     false,
                     true,
-                    e.toString()
+                    e.getMessage()
             );
             TransactionResponse transactionResponse = TransactionMapper.failureResponse(
                     null,
@@ -259,7 +259,7 @@ public class TransactionServiceImpl implements TransactionService{
                     "FAILURE",
                     false,
                     true,
-                    e.toString()
+                    e.getMessage()
             );
             TransactionResponse transactionResponse = TransactionMapper.failureResponse(
                     TransactionType.DEPOSIT,
@@ -311,7 +311,7 @@ public class TransactionServiceImpl implements TransactionService{
                     "FAILURE",
                     false,
                     true,
-                    e.toString()
+                    e.getMessage()
             );
             TransactionResponse transactionResponse = TransactionMapper.failureResponse(
                     TransactionType.WITHDRAW,
@@ -364,7 +364,7 @@ public class TransactionServiceImpl implements TransactionService{
                     "FAILURE",
                     false,
                     true,
-                    e.toString()
+                    e.getMessage()
             );
             TransactionResponse transactionResponse = TransactionMapper.failureResponse(
                     TransactionType.TRANSFER,
@@ -389,7 +389,7 @@ public class TransactionServiceImpl implements TransactionService{
                     "FAILURE",
                     false,
                     true,
-                    e.toString()
+                    e.getMessage()
             );
             TransactionResponse transactionResponse = TransactionMapper.failureResponse(
                     null,
@@ -430,7 +430,7 @@ public class TransactionServiceImpl implements TransactionService{
                     "FAILURE",
                     false,
                     true,
-                    e.toString()
+                    e.getMessage()
             );
             TransactionResponse transactionResponse = TransactionMapper.failureResponse(
                     null,
@@ -471,7 +471,7 @@ public class TransactionServiceImpl implements TransactionService{
                     "FAILURE",
                     false,
                     true,
-                    e.toString()
+                    e.getMessage()
             );
             TransactionResponse transactionResponse = TransactionMapper.failureResponse(
                     null,

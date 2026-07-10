@@ -34,16 +34,20 @@ public class CustomerServiceImpl implements CustomerService {
 
     @Override
     public CustomerResponse register(RegisterCustomerRequest request) {
-        try {
-            SystemDateTimeProvider time = new SystemDateTimeProvider();
+        SystemDateTimeProvider time = new SystemDateTimeProvider();
 
+        try {
             IdempotencyKey idempotencyKey = IdempotencyKey.of(request.getIdempotencyKey());
+            EmailAddress emailAddress = EmailAddress.of(request.getEmail());
 
             GetCachedResponseFromEmailRequest getCachedResponseFromEmailRequest = new GetCachedResponseFromEmailRequest(
-                    request.getEmail(), idempotencyKey.getValue()
+                    emailAddress.getValue(), idempotencyKey.getValue()
             );
             CachedResponse cachedResponse = authService.getCachedResponseFromEmail(getCachedResponseFromEmailRequest);
-            if (cachedResponse != null) {
+            if (cachedResponse.getErrorMessage() != null) {
+                System.err.println("Cache retrieval failed: " + cachedResponse.getErrorMessage());
+            }
+            if (cachedResponse.getErrorMessage() == null && cachedResponse.getResponseJson() != null) {
                 CustomerResponse customerResponse = gson.fromJson(
                         cachedResponse.getResponseJson(),
                         CustomerResponse.class
@@ -54,7 +58,7 @@ public class CustomerServiceImpl implements CustomerService {
 
             Customer customer = Customer.register(
                     request.getName(),
-                    request.getEmail(),
+                    emailAddress.getValue(),
                     request.getPhone(),
                     request.getRawPassword(),
                     passwordHasher,
@@ -77,7 +81,7 @@ public class CustomerServiceImpl implements CustomerService {
                     "FAILURE",
                     false,
                     true,
-                    e.toString()
+                    e.getMessage()
             );
             CustomerResponse customerResponse = CustomerMapper.failureResponse(
                     null,
@@ -100,7 +104,7 @@ public class CustomerServiceImpl implements CustomerService {
 
             BooleanResponse isValidTokenResponse = authService.validateToken(new ValidateTokenRequest(sessionToken));
             boolean isValidToken = isValidTokenResponse.value();
-            if (authenticatedId == null || !isValidToken) {
+            if (!isValidToken) {
                 String failureReason = String.format(
                         "Token: %s; Validity: %s; User: %s;",
                         request.getCurrentSessionToken(),
@@ -120,7 +124,10 @@ public class CustomerServiceImpl implements CustomerService {
                     authenticatedId.getValue(), idempotencyKey.getValue()
             );
             CachedResponse cachedResponse = authService.getCachedResponseFromId(getCachedResponseFromIdRequest);
-            if (cachedResponse != null) {
+            if (cachedResponse.getErrorMessage() != null) {
+                System.err.println("Cache retrieval failed: " + cachedResponse.getErrorMessage());
+            }
+            if (cachedResponse.getErrorMessage() == null && cachedResponse.getResponseJson() != null) {
                 ChangeNameResponse changeNameResponse = gson.fromJson(
                         cachedResponse.getResponseJson(), ChangeNameResponse.class
                 );
@@ -152,7 +159,7 @@ public class CustomerServiceImpl implements CustomerService {
                     "FAILURE",
                     false,
                     true,
-                    e.toString()
+                    e.getMessage()
             );
             ChangeNameResponse changeNameResponse = new ChangeNameResponse(
                     nameCurrent,
@@ -172,12 +179,11 @@ public class CustomerServiceImpl implements CustomerService {
             IdempotencyKey idempotencyKey = IdempotencyKey.of(request.getIdempotencyKey());
             EmailAddress emailCurrent = EmailAddress.of(request.getCurrentEmail());
             EmailAddress emailNew = EmailAddress.of(request.getNewEmail());
-
             CustomerId authenticatedId = CustomerId.of(authResponse.getCustomerId());
 
             BooleanResponse isValidTokenResponse = authService.validateToken(new ValidateTokenRequest(sessionToken));
             boolean isValidToken = isValidTokenResponse.value();
-            if (authenticatedId == null || !isValidToken) {
+            if (!isValidToken) {
                 String failureReason = String.format(
                         "Token: %s; Validity: %s; User: %s;",
                         request.getCurrentSessionToken(),
@@ -197,7 +203,10 @@ public class CustomerServiceImpl implements CustomerService {
                     authenticatedId.getValue(), idempotencyKey.getValue()
             );
             CachedResponse cachedResponse = authService.getCachedResponseFromId(getCachedResponseFromIdRequest);
-            if (cachedResponse != null) {
+            if (cachedResponse.getErrorMessage() != null) {
+                System.err.println("Cache retrieval failed: " + cachedResponse.getErrorMessage());
+            }
+            if (cachedResponse.getErrorMessage() == null && cachedResponse.getResponseJson() != null) {
                 ChangeEmailResponse changeEmailResponse = gson.fromJson(
                         cachedResponse.getResponseJson(), ChangeEmailResponse.class
                 );
@@ -227,7 +236,7 @@ public class CustomerServiceImpl implements CustomerService {
                     "FAILURE",
                     false,
                     true,
-                    e.toString()
+                    e.getMessage()
             );
             ChangeEmailResponse changeEmailResponse = new ChangeEmailResponse(
                     request.getCurrentEmail(),
@@ -251,7 +260,7 @@ public class CustomerServiceImpl implements CustomerService {
 
             BooleanResponse isValidTokenResponse = authService.validateToken(new ValidateTokenRequest(sessionToken));
             boolean isValidToken = isValidTokenResponse.value();
-            if (authenticatedId == null || !isValidToken) {
+            if (!isValidToken) {
                 String failureReason = String.format(
                         "Token: %s; Validity: %s; User: %s;",
                         request.getCurrentSessionToken(),
@@ -270,7 +279,10 @@ public class CustomerServiceImpl implements CustomerService {
                     authenticatedId.getValue(), idempotencyKey.getValue()
             );
             CachedResponse cachedResponse = authService.getCachedResponseFromId(getCachedResponseFromIdRequest);
-            if (cachedResponse != null) {
+            if (cachedResponse.getErrorMessage() != null) {
+                System.err.println("Cache retrieval failed: " + cachedResponse.getErrorMessage());
+            }
+            if (cachedResponse.getErrorMessage() == null && cachedResponse.getResponseJson() != null) {
                 ChangePasswordResponse changePasswordResponse = gson.fromJson(
                         cachedResponse.getResponseJson(),
                         ChangePasswordResponse.class
@@ -301,7 +313,7 @@ public class CustomerServiceImpl implements CustomerService {
                     "FAILURE",
                     false,
                     true,
-                    e.toString()
+                    e.getMessage()
             );
             ChangePasswordResponse changePasswordResponse = new ChangePasswordResponse(
                     operationStatus.getValue(),
@@ -324,7 +336,7 @@ public class CustomerServiceImpl implements CustomerService {
 
             BooleanResponse isValidTokenResponse = authService.validateToken(new ValidateTokenRequest(sessionToken));
             boolean isValidToken = isValidTokenResponse.value();
-            if (authenticatedId == null || !isValidToken) {
+            if (!isValidToken) {
                 String failureReason = String.format(
                         "Token: %s; Validity: %s; User: %s;",
                         request.getCurrentSessionToken(),
@@ -344,7 +356,10 @@ public class CustomerServiceImpl implements CustomerService {
                     authenticatedId.getValue(), idempotencyKey.getValue()
             );
             CachedResponse cachedResponse = authService.getCachedResponseFromId(getCachedResponseFromIdRequest);
-            if (cachedResponse != null) {
+            if (cachedResponse.getErrorMessage() != null) {
+                System.err.println("Cache retrieval failed: " + cachedResponse.getErrorMessage());
+            }
+            if (cachedResponse.getErrorMessage() == null && cachedResponse.getResponseJson() != null) {
                 ChangePhoneNumberResponse changePhoneNumberResponse = gson.fromJson(
                         cachedResponse.getResponseJson(), ChangePhoneNumberResponse.class
                 );
@@ -369,12 +384,12 @@ public class CustomerServiceImpl implements CustomerService {
 
             return changePhoneNumberResponse;
 
-        } catch (JsonSyntaxException e) {
+        } catch (IllegalArgumentException | CustomerNotFoundException | JsonSyntaxException e) {
             OperationStatus operationStatus = OperationStatus.of(
                     "FAILURE",
                     false,
                     true,
-                    e.toString()
+                    e.getMessage()
             );
             ChangePhoneNumberResponse changePhoneNumberResponse = new ChangePhoneNumberResponse(
                     null,
@@ -402,7 +417,7 @@ public class CustomerServiceImpl implements CustomerService {
                     "FAILURE",
                     false,
                     true,
-                    e.toString()
+                    e.getMessage()
             );
             CustomerResponse customerResponse = CustomerMapper.failureResponse(
                     authResponse.getCustomerId(),
@@ -421,12 +436,12 @@ public class CustomerServiceImpl implements CustomerService {
 
             return CustomerMapper.toResponse(customer, OperationStatus.SUCCESS);
 
-        } catch (CustomerNotFoundException e) {
+        } catch (IllegalArgumentException | CustomerNotFoundException e) {
             OperationStatus operationStatus = OperationStatus.of(
                     "FAILURE",
                     false,
                     true,
-                    e.toString()
+                    e.getMessage()
             );
             CustomerResponse customerResponse = CustomerMapper.failureResponse(
                     request.getEmail(),
@@ -456,7 +471,7 @@ public class CustomerServiceImpl implements CustomerService {
                     "FAILURE",
                     false,
                     true,
-                    e.toString()
+                    e.getMessage()
             );
 
             return new BooleanResponse(false, operationStatus.getDescription());
@@ -488,7 +503,7 @@ public class CustomerServiceImpl implements CustomerService {
                     "FAILURE",
                     false,
                     true,
-                    e.toString()
+                    e.getMessage()
             );
 
             return new BooleanResponse(false, operationStatus.getDescription());
