@@ -45,6 +45,7 @@ public class DIContainerImpl implements lv.v3nom.infrastructure.di.DIContainer {
                 }
             }
 
+            boolean wasAccessible = targetConstructor.canAccess(null);
             targetConstructor.setAccessible(true);
 
             Class<?>[] parameterTypes = targetConstructor.getParameterTypes();
@@ -56,7 +57,11 @@ public class DIContainerImpl implements lv.v3nom.infrastructure.di.DIContainer {
 
             T instance = (T) targetConstructor.newInstance(dependencyInstances);
             resolvingStack.remove(type);
-            targetConstructor.setAccessible(false);
+
+            // we don't need to reset accessibility, because it can mess public constructors
+            // and more than that, this setAccessible() flag is not persistent across different invocations
+            // so it's safe to leave it in it's overridden 'true' state
+            // targetConstructor.setAccessible(false);
 
             return instance;
 
