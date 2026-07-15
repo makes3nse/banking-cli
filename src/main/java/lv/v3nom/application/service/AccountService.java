@@ -1,10 +1,7 @@
 package lv.v3nom.application.service;
 
 import lv.v3nom.application.dto.requests.*;
-import lv.v3nom.application.dto.responses.AccountResponse;
-import lv.v3nom.application.dto.responses.AccountStatusResponse;
-import lv.v3nom.application.dto.responses.BalanceResponse;
-import lv.v3nom.application.dto.responses.TransactionResponse;
+import lv.v3nom.application.dto.responses.*;
 
 import java.util.List;
 
@@ -14,7 +11,7 @@ public interface AccountService {
     TransactionResponse withdraw(WithdrawRequest request);
     TransactionResponse transfer(TransferRequest request);
     BalanceResponse getBalance(ViewBalanceRequest request);
-    List<AccountResponse> getAccountsByCustomer(GetAccountsRequest request);
+    AccountListResponse getAccountsByCustomer(GetAccountsRequest request);
     AccountStatusResponse closeAccount(CloseAccountRequest request);
     AccountStatusResponse freezeAccount(FreezeAccountRequest request);
     AccountStatusResponse unfreezeAccount(UnfreezeAccountRequest request);
