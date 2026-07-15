@@ -576,7 +576,7 @@ public class AccountServiceImpl implements AccountService {
         }
     }
     @Override
-    public List<AccountResponse> getAccountsByCustomer(GetAccountsRequest request) {
+    public AccountListResponse getAccountsByCustomer(GetAccountsRequest request) {
         //      Validate token            --> get customer ID
         //      Determine target customer (self or admin)
         //      Authorize privs
@@ -603,22 +603,33 @@ public class AccountServiceImpl implements AccountService {
                         true,
                         failureReason
                 );
-
-                return List.of(AccountMapper.failureResponse(
-                        authResponse.getCustomerId(),
-                        operationStatus)
+                AccountListResponse accountListResponse = new AccountListResponse(
+                        List.of(AccountMapper.failureResponse(authResponse.getCustomerId(), operationStatus)),
+                        0,
+                        operationStatus.getValue(),
+                        operationStatus.getDescription()
                 );
+
+                return accountListResponse;
             }
 
             List<Account> accounts = accountRepository.findByCustomerId(authenticatedId);
-            List<AccountResponse> response = new ArrayList<>();
+            List<AccountResponse> accountResponses = new ArrayList<>();
+            int totalCount = 0;
+            AccountListResponse accountListResponse = new AccountListResponse(
+                    accountResponses,
+                    totalCount,
+                    OperationStatus.UNKNOWN.getValue(),
+                    OperationStatus.UNKNOWN.getDescription()
+            );
             for (Account account : accounts) {
                 if (account.getOwnerId().equals(authenticatedId)) {
-                    response.add(AccountMapper.toResponse(account, OperationStatus.UNKNOWN));
+                    accountResponses.add(AccountMapper.toResponse(account, OperationStatus.UNKNOWN));
+                    totalCount++;
                 }
             }
 
-            return response;
+            return accountListResponse;
 
         } catch (IllegalArgumentException | AccountNotFoundException e) {
             OperationStatus operationStatus = OperationStatus.of(
@@ -627,11 +638,14 @@ public class AccountServiceImpl implements AccountService {
                     true,
                     e.getMessage()
             );
-
-            return List.of(AccountMapper.failureResponse(
-                    authResponse.getCustomerId(),
-                    operationStatus)
+            AccountListResponse accountListResponse = new AccountListResponse(
+                    List.of(AccountMapper.failureResponse(authResponse.getCustomerId(), operationStatus)),
+                    0,
+                    operationStatus.getValue(),
+                    operationStatus.getDescription()
             );
+
+            return accountListResponse;
         }
     }
 
