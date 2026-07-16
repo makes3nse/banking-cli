@@ -33,10 +33,10 @@ public class MenuRenderer {
     public void showMainMenu(String userName) {
         clearScreen();
         System.out.println("Logged in as: " + userName);
-        System.out.println("1.Accounts");
+        System.out.println("\n1.Accounts");
         System.out.println("2.Open Account");
         System.out.println("3.Profile settings");
-        System.out.println("4.Logout");
+        System.out.println("\n4.Logout");
         System.out.println("5.Exit");
         System.out.print("\nOption: ");
 
@@ -63,17 +63,30 @@ public class MenuRenderer {
     }
     public void showAccountSettings(AccountResponse account) {
         clearScreen();
+        System.out.println("Account ID: ");
+        System.out.println("    Status: ");
+        System.out.println("  Currency: ");
+        System.out.println("   Balance: ");
+        System.out.println("\n1.Deposit");
+        System.out.println("2.Withdraw");
+        System.out.println("3.Transfer");
         switch (account.getStatus()) {
             case "FROZEN":
-                System.out.println("1.Unfreeze Account");
+                System.out.println("\n4.Unfreeze Account");
                 break;
             default:
-                System.out.println("1.Freeze Account");
+                System.out.println("\n4.Freeze Account");
                 break;
         }
-        System.out.println("2.Change Email");
-        System.out.println("3.Change Phone");
-        System.out.println("4.Change Password");
+        System.out.println("\n5.Close Account");
+
+        if (account.getOperationStatus() != "SUCCESS") {
+            clearScreen();
+            System.out.println(" Operation: " + account.getOperationStatus());
+            System.out.println("     Error: " + account.getErrorMessage());
+            System.out.println("\n(b — back, m — main menu)");
+            System.out.print("Option: ");
+        }
         System.out.println("\n(b — back, m — main menu)");
         System.out.print("Option: ");
     }
@@ -167,21 +180,6 @@ public class MenuRenderer {
             clearScreen();
             System.out.println(" Operation: " + balance.getOperationStatus());
             System.out.println("     Error: " + balance.getErrorMessage());
-        }
-        System.out.println("\n(b — back, m — main menu)");
-        System.out.print("Option: ");
-    }
-    public void showAccount(AccountResponse account) {
-        clearScreen();
-        System.out.println("Account ID: ");
-        System.out.println("    Status: ");
-        System.out.println("  Currency: ");
-        System.out.println("   Balance: ");
-
-        if (account.getOperationStatus() != "SUCCESS") {
-            clearScreen();
-            System.out.println(" Operation: " + account.getOperationStatus());
-            System.out.println("     Error: " + account.getErrorMessage());
         }
         System.out.println("\n(b — back, m — main menu)");
         System.out.print("Option: ");
