@@ -72,9 +72,7 @@ public class InputParser {
         );
     }
     public GetAccountsRequest parseGetAccounts(String token, String customerId) {
-        return new GetAccountsRequest(
-                token, customerId
-        );
+        return new GetAccountsRequest(token);
     }
 
     // financial
