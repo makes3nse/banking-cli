@@ -79,6 +79,8 @@ public class AuthServiceImpl implements AuthService {
                         null,
                         null,
                         null,
+                        null,
+                        null,
                         OperationStatus.FAILURE.getValue(),
                         OperationStatus.FAILURE.isOperational(),
                         validateLoginResponse.getErrorMessage()
@@ -94,8 +96,10 @@ public class AuthServiceImpl implements AuthService {
             LogInResponse logInResponse = new LogInResponse(
                     customerResponse.getCustomerId(),
                     sessionToken.getValue(),
-                    customerResponse.getStatus(),
                     customerResponse.getName(),
+                    customerResponse.getEmail(),
+                    customerResponse.getPhone(),
+                    customerResponse.getStatus(),
                     OperationStatus.SUCCESS.getValue(),
                     OperationStatus.SUCCESS.isOperational(),
                     OperationStatus.SUCCESS.getDescription()
@@ -122,6 +126,8 @@ public class AuthServiceImpl implements AuthService {
                     e.getMessage()
             );
             LogInResponse logInResponse = new LogInResponse(
+                    null,
+                    null,
                     null,
                     null,
                     null,
@@ -189,6 +195,16 @@ public class AuthServiceImpl implements AuthService {
 
             return booleanResponse;
         }
+    }
+    @Override
+    public SessionTokenResponse generateToken(GenerateSessionTokenRequest request) {
+        SystemDateTimeProvider time = new SystemDateTimeProvider();
+
+        Token sessionToken = tokenProvider.generateToken(
+                CustomerId.of(request.getCustomerId()), time.now()
+        );
+
+        return new SessionTokenResponse(sessionToken.getValue());
     }
     @Override
     public BooleanResponse validateToken(ValidateTokenRequest request) {
