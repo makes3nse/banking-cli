@@ -1,6 +1,6 @@
 package lv.v3nom.application.dto.responses;
 
-public class LogInResponse {
+public class RegisterCustomerResponse {
     private String customerId;
     private String sessionToken;
     private String name;
@@ -8,19 +8,17 @@ public class LogInResponse {
     private String phone;
     private String status;
     private String operationStatus;
-    private boolean isSucceeded;
     private String errorMessage;
 
-    public LogInResponse() {}
-    public LogInResponse(String customerId,
-                         String sessionToken,
-                         String name,
-                         String email,
-                         String phone,
-                         String status,
-                         String operationStatus,
-                         boolean isSucceeded,
-                         String errorMessage) {
+    public RegisterCustomerResponse() {}
+    public RegisterCustomerResponse(String customerId,
+                                    String sessionToken,
+                                    String name,
+                                    String email,
+                                    String phone,
+                                    String status,
+                                    String operationStatus,
+                                    String errorMessage) {
 
         this.customerId = customerId;
         this.sessionToken = sessionToken;
@@ -29,7 +27,6 @@ public class LogInResponse {
         this.phone = phone;
         this.status = status;
         this.operationStatus = operationStatus;
-        this.isSucceeded = isSucceeded;
         this.errorMessage = errorMessage;
     }
 
@@ -39,7 +36,6 @@ public class LogInResponse {
     public String getEmail() { return email; }
     public String getPhone() { return phone; }
     public String getStatus() { return status; }
-    public boolean isSucceeded() { return isSucceeded; }
     public String getOperationStatus() { return operationStatus; }
     public String getErrorMessage() { return errorMessage; }
 }
