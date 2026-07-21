@@ -23,6 +23,14 @@ public class MenuRenderer {
         String message = String.format("Login Failed: %s", reason);
         System.out.println(message);
     }
+    public void showLogOut() {
+        clearScreen();
+        String message = String.format("End session?");
+        System.out.println(message);
+        System.out.println("\n1.Yes");
+        System.out.println("\n(b — back)");
+        System.out.print("Option: ");
+    }
     public void showLoggedOut() {
         clearScreen();
         String message = String.format("Logged out!");
@@ -30,6 +38,13 @@ public class MenuRenderer {
     }
 
     // === Main menu ===
+    public void showSignInMenu(int major, int minor, int maintenance) {
+        showWelcomeScreen(major, minor, maintenance);
+        System.out.println("\n1.Login");
+        System.out.println("2.Register");;
+        System.out.println("3.Exit");
+        System.out.print("\nOption: ");
+    }
     public void showMainMenu(String userName) {
         clearScreen();
         System.out.println("Logged in as: " + userName);
@@ -39,17 +54,20 @@ public class MenuRenderer {
         System.out.println("\n4.Logout");
         System.out.println("5.Exit");
         System.out.print("\nOption: ");
-
     }
     public void showAccountsMenu(AccountListResponse accountListResponse) {
         clearScreen();
         List<AccountResponse> accounts = accountListResponse.getAccountResponses();
-        int i = 0;
-        for (AccountResponse a : accounts) {
-            System.out.println(String.format("%s. %s | %s | %s", i, a.getAccountId(), a.getCurrency(), a.getBalance()));
-            i++;
+        for (int i = 0; i < accounts.size(); i++) {
+            System.out.println(String.format(
+                    "%s. %s | %s | %s",
+                    i,
+                    accounts.get(i).getAccountId(),
+                    accounts.get(i).getCurrency(),
+                    accounts.get(i).getBalance())
+            );
         }
-        System.out.println("\n(b — back, m — main menu)");
+        System.out.println("\n(m — main menu)");
         System.out.print("Option: ");
     }
     public void showProfileSettings() {
@@ -58,7 +76,7 @@ public class MenuRenderer {
         System.out.println("2.Change Email");
         System.out.println("3.Change Phone");
         System.out.println("4.Change Password");
-        System.out.println("\n(b — back, m — main menu)");
+        System.out.println("\nm — main menu)");
         System.out.print("Option: ");
     }
     public void showAccountSettings(AccountResponse account) {
@@ -70,22 +88,21 @@ public class MenuRenderer {
         System.out.println("\n1.Deposit");
         System.out.println("2.Withdraw");
         System.out.println("3.Transfer");
+        System.out.println("4.Transaction History");
         switch (account.getStatus()) {
             case "FROZEN":
-                System.out.println("\n4.Unfreeze Account");
+                System.out.println("\n5.Unfreeze Account");
                 break;
             default:
-                System.out.println("\n4.Freeze Account");
+                System.out.println("\n5.Freeze Account");
                 break;
         }
-        System.out.println("\n5.Close Account");
+        System.out.println("\n6.Close Account");
 
         if (account.getOperationStatus() != "SUCCESS") {
             clearScreen();
             System.out.println(" Operation: " + account.getOperationStatus());
             System.out.println("     Error: " + account.getErrorMessage());
-            System.out.println("\n(b — back, m — main menu)");
-            System.out.print("Option: ");
         }
         System.out.println("\n(b — back, m — main menu)");
         System.out.print("Option: ");
@@ -110,7 +127,12 @@ public class MenuRenderer {
     }
     public void promptCurrency() {
         clearScreen();
-        System.out.print("Currency: ");
+        System.out.println("1.USD");
+        System.out.println("2.EUR");
+        System.out.println("3.RUB");
+        System.out.println("4.GBP");
+        System.out.println("\nm — main menu)");
+        System.out.print("Option: ");
     }
     public void promptSourceAccount() {
         clearScreen();

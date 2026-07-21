@@ -71,7 +71,7 @@ public class InputParser {
                 accountId
         );
     }
-    public GetAccountsRequest parseGetAccounts(String token, String customerId) {
+    public GetAccountsRequest parseGetAccounts(String token) {
         return new GetAccountsRequest(token);
     }
 

@@ -63,15 +63,17 @@ public class SessionManagerImpl implements SessionManager {
     public void clearSession() {
         try {
             Files.deleteIfExists(sessionFile);
+            Files.deleteIfExists(userFile);
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
         currentToken = null;
+        user = null;
     }
     @Override
     public boolean isLoggedIn() {
         String token = getToken();
-        if (token == null) return false;
+        if (token == null || user == null) return false;
         BooleanResponse isValidToken = authService.validateToken(
                 new ValidateTokenRequest(token)
         );
