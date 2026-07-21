@@ -33,7 +33,7 @@ public class CustomerServiceImpl implements CustomerService {
     }
 
     @Override
-    public CustomerResponse register(RegisterCustomerRequest request) {
+    public RegisterCustomerResponse register(RegisterCustomerRequest request) {
         SystemDateTimeProvider time = new SystemDateTimeProvider();
 
         try {
@@ -48,12 +48,12 @@ public class CustomerServiceImpl implements CustomerService {
                 System.err.println("Cache retrieval failed: " + cachedResponse.getErrorMessage());
             }
             if (cachedResponse.getErrorMessage() == null && cachedResponse.getResponseJson() != null) {
-                CustomerResponse customerResponse = gson.fromJson(
+                RegisterCustomerResponse registerCustomerResponse = gson.fromJson(
                         cachedResponse.getResponseJson(),
-                        CustomerResponse.class
+                        RegisterCustomerResponse.class
                 );
 
-                return customerResponse;
+                return registerCustomerResponse;
             }
 
             Customer customer = Customer.register(
@@ -65,16 +65,24 @@ public class CustomerServiceImpl implements CustomerService {
                     time.now()
             );
             customerRepository.save(customer);
-            CustomerResponse customerResponse = CustomerMapper.toResponse(customer, OperationStatus.SUCCESS);
+            GenerateSessionTokenRequest generateSessionTokenRequest = new GenerateSessionTokenRequest(
+                    customer.getId().getValue()
+            );
+            SessionTokenResponse sessionTokenResponse = authService.generateToken(generateSessionTokenRequest);
+            RegisterCustomerResponse registerCustomerResponse = CustomerMapper.toRegisterResponse(
+                    customer,
+                    sessionTokenResponse.getSessionToken(),
+                    OperationStatus.SUCCESS
+            );
             SaveCachedResponseFromEmailRequest saveCachedResponseFromEmailRequest = new SaveCachedResponseFromEmailRequest(
                     customer.getEmail().getValue(),
                     idempotencyKey.getValue(),
-                    gson.toJson(customerResponse),
-                    customerResponse.getClass().getSimpleName()
+                    gson.toJson(registerCustomerResponse),
+                    registerCustomerResponse.getClass().getSimpleName()
             );
             authService.saveCachedResponseFromEmail(saveCachedResponseFromEmailRequest);
 
-            return customerResponse;
+            return registerCustomerResponse;
 
         } catch (IllegalArgumentException | JsonSyntaxException e) {
             OperationStatus operationStatus = OperationStatus.of(
@@ -83,12 +91,12 @@ public class CustomerServiceImpl implements CustomerService {
                     true,
                     e.getMessage()
             );
-            CustomerResponse customerResponse = CustomerMapper.failureResponse(
+            RegisterCustomerResponse registerCustomerResponse = CustomerMapper.failureRegisterResponse(
                     null,
                     operationStatus
             );
 
-            return customerResponse;
+            return registerCustomerResponse;
         }
     }
     @Override

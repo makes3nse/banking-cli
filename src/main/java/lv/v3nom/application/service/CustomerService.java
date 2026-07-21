@@ -4,7 +4,7 @@ import lv.v3nom.application.dto.requests.*;
 import lv.v3nom.application.dto.responses.*;
 
 public interface CustomerService {
-    CustomerResponse register(RegisterCustomerRequest request);
+    RegisterCustomerResponse register(RegisterCustomerRequest request);
     ChangeNameResponse changeName(ChangeNameRequest request);
     ChangeEmailResponse changeEmail(ChangeEmailRequest request);
     ChangePasswordResponse changePassword(ChangePasswordRequest request);
