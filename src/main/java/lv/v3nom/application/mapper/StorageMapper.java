@@ -13,7 +13,7 @@ import lv.v3nom.domain.value.*;
 import java.time.LocalDateTime;
 
 public class StorageMapper {
-    public AccountStorageDTO toStorageAccount(Account account) {
+    public static AccountStorageDTO toStorageAccount(Account account) {
         return new AccountStorageDTO(
                 account.getAccountId().getValue(),
                 account.getOwnerId().getValue(),
@@ -24,7 +24,7 @@ public class StorageMapper {
                 account.getUpdatedAt().toString()
         );
     }
-    public Account fromStorageAccount(AccountStorageDTO accountStorageDTO) {
+    public static Account fromStorageAccount(AccountStorageDTO accountStorageDTO) {
         try {
             AccountId accountId = AccountId.of(accountStorageDTO.getAccountId());
             CustomerId customerId = CustomerId.of(accountStorageDTO.getOwnerId());
@@ -48,7 +48,7 @@ public class StorageMapper {
             throw new RuntimeException("Failed to reconstitute account", e);
         }
     }
-    public CustomerStorageDTO toStorageCustomer(Customer customer) {
+    public static CustomerStorageDTO toStorageCustomer(Customer customer) {
         return new CustomerStorageDTO(
                 customer.getId().getValue(),
                 customer.getRole().toString(),
@@ -61,7 +61,7 @@ public class StorageMapper {
                 customer.getUpdatedAt().toString()
         );
     }
-    public Customer fromStorageCustomer(CustomerStorageDTO customerStorageDTO, PasswordHasher passwordHasher) {
+    public static Customer fromStorageCustomer(CustomerStorageDTO customerStorageDTO, PasswordHasher passwordHasher) {
         try {
             CustomerId customerId = CustomerId.of(customerStorageDTO.getId());
             Role role = Role.valueOf(Role.class, customerStorageDTO.getRole());
@@ -89,7 +89,7 @@ public class StorageMapper {
             throw new RuntimeException("Failed to reconstitute customer", e);
         }
     }
-    public TransactionStorageDTO toStorageTransaction(Transaction transaction) {
+    public static TransactionStorageDTO toStorageTransaction(Transaction transaction) {
         return new TransactionStorageDTO(
                 transaction.getTransactionId().getValue(),
                 transaction.getCurrency().value(),
@@ -104,7 +104,7 @@ public class StorageMapper {
                 transaction.getRejectReason() != null ? transaction.getRejectReason() : null
         );
     }
-    public Transaction fromStorageTransaction(TransactionStorageDTO transactionStorageDTO) {
+    public static Transaction fromStorageTransaction(TransactionStorageDTO transactionStorageDTO) {
         try {
             TransactionId transactionId = TransactionId.of(transactionStorageDTO.getTransactionId());
             Currency currency = Currency.of(transactionStorageDTO.getCurrency());
@@ -137,14 +137,14 @@ public class StorageMapper {
             throw new RuntimeException("Failed to reconstitute transaction", e);
         }
     }
-    public TokenStorageDTO toStorageToken(Token token) {
+    public static TokenStorageDTO toStorageToken(Token token) {
         return new TokenStorageDTO(
                 token.getValue(),
                 token.getExpiry().toString(),
                 token.getCustomerId().getValue()
         );
     }
-    public Token fromStorageToken(TokenStorageDTO tokenStorageDTO) {
+    public static Token fromStorageToken(TokenStorageDTO tokenStorageDTO) {
         try {
             String tokenValue = tokenStorageDTO.getValue();
             LocalDateTime expiry = LocalDateTime.parse(tokenStorageDTO.getExpiry());
