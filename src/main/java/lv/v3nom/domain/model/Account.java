@@ -37,13 +37,12 @@ public class Account {
                                CustomerStatus customerStatus,
                                LocalDateTime createdAndUpdatedAt) {
 
-        SystemDateTimeProvider clock = new SystemDateTimeProvider();
         if (ownerId == null) {
             throw new IllegalArgumentException(
                     "Cannot open account. Customer is not specified");
         }
-        if (customerStatus != CustomerStatus.ACTIVE) {
-            throw new IllegalStateException("Customer account should be ACTIVE to open account");
+        if (!customerStatus.equals(CustomerStatus.ACTIVE)) {
+            throw new IllegalStateException("Customer account should be ACTIVE to open account. Current status: " + customerStatus.getValue());
         }
         return new Account(
                 AccountId.generate(),
