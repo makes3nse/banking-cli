@@ -36,6 +36,35 @@ public class Transaction {
         this.createdAt = createdAt;
     }
 
+    public static Transaction reconstitute(TransactionId transactionId,
+                                           Currency currency,
+                                           Money amount,
+                                           AccountId sourceAccount,
+                                           AccountId targetAccount,
+                                           TransactionType transactionType,
+                                           TransactionStatus transactionStatus,
+                                           LocalDateTime createdAt,
+                                           LocalDateTime completedAt,
+                                           String returnReason,
+                                           String rejectReason) {
+
+        Transaction transaction = new Transaction(
+                transactionId,
+                currency,
+                amount,
+                sourceAccount,
+                targetAccount,
+                transactionType,
+                transactionStatus,
+                createdAt
+        );
+        transaction.completedAt = completedAt;
+        transaction.returnReason = returnReason;
+        transaction.rejectReason = rejectReason;
+
+        return transaction;
+    }
+
     // newborn transaction states
     public static Transaction createDepositRecord(TransactionId transactionId,
                                                   Money amount,
