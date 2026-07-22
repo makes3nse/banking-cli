@@ -13,7 +13,7 @@ public class Customer {
     private EmailAddress email;
     private PhoneNumber phoneNumber;
     private Password password;
-    private PasswordHasher hasher;
+    private transient PasswordHasher hasher;
     private final LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
