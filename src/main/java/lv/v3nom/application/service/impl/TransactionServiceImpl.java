@@ -18,20 +18,21 @@ import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.function.Supplier;
 
 public class TransactionServiceImpl implements TransactionService{
     private final TransactionRepository transactionRepository;
-    private final AccountService accountService;
+    private final Supplier<AccountService> accountServiceFactory;
     private final CustomerService customerService;
     private final AuthService authService;
 
     public TransactionServiceImpl(TransactionRepository transactionRepository,
-                                  AccountService accountService,
+                                  Supplier<AccountService> accountServiceFactory,
                                   CustomerService customerService,
                                   AuthService authService) {
 
         this.transactionRepository = transactionRepository;
-        this.accountService = accountService;
+        this.accountServiceFactory = accountServiceFactory;
         this.customerService = customerService;
         this.authService = authService;
     }
@@ -68,11 +69,13 @@ public class TransactionServiceImpl implements TransactionService{
             List<Transaction> transactions = transactionRepository.findByDateRangeForAccountId(
                     accountId, fromRange, toRange
             );
+            System.out.println("Found " + transactions.size() + " transactions");
             List<TransactionSummaryResponse> summaryResponses = new ArrayList<>();
 
             int transactionCount = 0;
             for (Transaction transaction : transactions) {
                 summaryResponses.add(new TransactionSummaryResponse(transaction));
+                System.out.println("TrxSvc: added TransactionSummaryResponse to TrxHistory List");
                 transactionCount += 1;
             }
             TransactionHistoryResponse response = new TransactionHistoryResponse(
@@ -85,12 +88,7 @@ public class TransactionServiceImpl implements TransactionService{
             return response;
 
         } catch (IllegalArgumentException | TransactionNotFoundException | DateTimeParseException e) {
-            OperationStatus operationStatus = OperationStatus.of(
-                    "FAILURE",
-                    false,
-                    true,
-                    e.getMessage()
-            );
+            OperationStatus operationStatus = OperationStatus.failure(e.getMessage());
             TransactionHistoryResponse transactionHistoryResponse = new TransactionHistoryResponse(
                     null,
                     0,
@@ -135,11 +133,11 @@ public class TransactionServiceImpl implements TransactionService{
             GetAccountDetailsRequest getSenderAccountDetailsRequest = new GetAccountDetailsRequest(
                     sessionToken, senderAccountId.getValue()
             );
-            AccountResponse senderAccountResponse = accountService.getAccountDetails(getSenderAccountDetailsRequest);
+            AccountResponse senderAccountResponse = accountServiceFactory.get().getAccountDetails(getSenderAccountDetailsRequest);
             GetAccountDetailsRequest getReceiverAccountDetailsRequest = new GetAccountDetailsRequest(
                     sessionToken, receiverAccountId.getValue()
             );
-            AccountResponse receiverAccountResponse = accountService.getAccountDetails(getReceiverAccountDetailsRequest);
+            AccountResponse receiverAccountResponse = accountServiceFactory.get().getAccountDetails(getReceiverAccountDetailsRequest);
 
             boolean isOwnedByAccount = senderAccountId.equals(accountId) || receiverAccountId.equals(accountId);
             boolean isOwnedByCustomer = authenticatedId.equals(CustomerId.of(senderAccountResponse.getCustomerId()))
@@ -165,12 +163,7 @@ public class TransactionServiceImpl implements TransactionService{
             return response;
 
         } catch (IllegalArgumentException | TransactionNotFoundException | DateTimeParseException e) {
-            OperationStatus operationStatus = OperationStatus.of(
-                    "FAILURE",
-                    false,
-                    true,
-                    e.getMessage()
-            );
+            OperationStatus operationStatus = OperationStatus.failure(e.getMessage());
             return TransactionMapper.failureResponse(
                     null,
                     "Error retrieving transaction details",
@@ -190,12 +183,7 @@ public class TransactionServiceImpl implements TransactionService{
             return transactionResponse;
 
         } catch (IllegalArgumentException e) {
-            OperationStatus operationStatus = OperationStatus.of(
-                    "FAILURE",
-                    false,
-                    true,
-                    e.getMessage()
-            );
+            OperationStatus operationStatus = OperationStatus.failure(e.getMessage());
             TransactionResponse transactionResponse = TransactionMapper.failureResponse(
                     null,
                     "Error getting failure response",
@@ -220,6 +208,14 @@ public class TransactionServiceImpl implements TransactionService{
         //      2.Call transactionService.createDepositTransaction(accountId, amount, idempotencyKey)
         //      3.Update account balance
         //      4.Return response from TransactionService
+        System.out.println("TrxSvs: createDepositTransaction()");
+        System.out.println(request.getTransactionType() + " transactionType");
+        System.out.println(request.getTransactionId() + " transactionId");
+        System.out.println(request.getAmount() + " amount");
+        System.out.println(request.getCurrency() + " currency");
+        System.out.println(request.getCreatedAt() + " createdAt");
+        System.out.println(request.getSourceAccountId() + " sourceAccountId");
+        System.out.println(request.getTargetAccountId() + " targetAccountId");
         try {
             Objects.requireNonNull(request.getTransactionType(), "transactionType");
             Objects.requireNonNull(request.getTransactionId(), "transactionId");
@@ -230,10 +226,7 @@ public class TransactionServiceImpl implements TransactionService{
             Objects.requireNonNull(request.getTargetAccountId(), "targetAccountId");
 
         } catch (NullPointerException e) {
-            OperationStatus operationStatus = OperationStatus.of(
-                    "FAILURE",
-                    false,
-                    true,
+            OperationStatus operationStatus = OperationStatus.failure(
                     String.format("Deposit Request cannot have null values: %s is null", e.getMessage())
             );
 
@@ -255,12 +248,7 @@ public class TransactionServiceImpl implements TransactionService{
             return TransactionMapper.toResponse(transaction, OperationStatus.PROCESSING);
 
         } catch (IllegalArgumentException | DateTimeParseException e) {
-            OperationStatus operationStatus = OperationStatus.of(
-                    "FAILURE",
-                    false,
-                    true,
-                    e.getMessage()
-            );
+            OperationStatus operationStatus = OperationStatus.failure(e.getMessage());
             TransactionResponse transactionResponse = TransactionMapper.failureResponse(
                     TransactionType.DEPOSIT,
                     "Error creating deposit transaction",
@@ -282,10 +270,7 @@ public class TransactionServiceImpl implements TransactionService{
             Objects.requireNonNull(request.getTargetAccountId(), "targetAccountId");
 
         } catch (NullPointerException e) {
-            OperationStatus operationStatus = OperationStatus.of(
-                    "FAILURE",
-                    false,
-                    true,
+            OperationStatus operationStatus = OperationStatus.failure(
                     String.format("Withdrawal Request cannot have null values: %s is null", e.getMessage())
             );
 
@@ -307,12 +292,7 @@ public class TransactionServiceImpl implements TransactionService{
             return TransactionMapper.toResponse(transaction, OperationStatus.PROCESSING);
 
         } catch (IllegalArgumentException | DateTimeParseException e) {
-            OperationStatus operationStatus = OperationStatus.of(
-                    "FAILURE",
-                    false,
-                    true,
-                    e.getMessage()
-            );
+            OperationStatus operationStatus = OperationStatus.failure(e.getMessage());
             TransactionResponse transactionResponse = TransactionMapper.failureResponse(
                     TransactionType.WITHDRAW,
                     "Error creating withdrawal transaction",
@@ -334,10 +314,7 @@ public class TransactionServiceImpl implements TransactionService{
             Objects.requireNonNull(request.getTargetAccountId(), "targetAccountId");
 
         } catch (NullPointerException e) {
-            OperationStatus operationStatus = OperationStatus.of(
-                    "FAILURE",
-                    false,
-                    true,
+            OperationStatus operationStatus = OperationStatus.failure(
                     String.format("Transfer Request cannot have null values: %s is null", e.getMessage())
             );
 
@@ -360,12 +337,7 @@ public class TransactionServiceImpl implements TransactionService{
             return TransactionMapper.toResponse(transaction, OperationStatus.PROCESSING);
 
         } catch (IllegalArgumentException | DateTimeParseException e) {
-            OperationStatus operationStatus = OperationStatus.of(
-                    "FAILURE",
-                    false,
-                    true,
-                    e.getMessage()
-            );
+            OperationStatus operationStatus = OperationStatus.failure(e.getMessage());
             TransactionResponse transactionResponse = TransactionMapper.failureResponse(
                     TransactionType.TRANSFER,
                     "Error creating transfer transaction",
@@ -380,17 +352,14 @@ public class TransactionServiceImpl implements TransactionService{
         try {
             Transaction transaction = transactionRepository.findById(TransactionId.of(request.getTransactionId()));
             transaction.complete(LocalDateTime.parse(request.getCompletedAt()));
+            System.out.println("Saving transaction with status: " + transaction.getTransactionStatus());
             transactionRepository.save(transaction);
+            System.out.println("Transaction saved. Status now: " + transaction.getTransactionStatus());
 
             return TransactionMapper.toResponse(transaction, OperationStatus.SUCCESS);
 
         } catch (IllegalArgumentException | DateTimeParseException e) {
-            OperationStatus operationStatus = OperationStatus.of(
-                    "FAILURE",
-                    false,
-                    true,
-                    e.getMessage()
-            );
+            OperationStatus operationStatus = OperationStatus.failure(e.getMessage());
             TransactionResponse transactionResponse = TransactionMapper.failureResponse(
                     null,
                     "Cannot complete transaction",
@@ -426,12 +395,7 @@ public class TransactionServiceImpl implements TransactionService{
             return TransactionMapper.toResponse(transaction, OperationStatus.SUCCESS);
 
         } catch (IllegalArgumentException | TransactionNotFoundException | IllegalStateException e) {
-            OperationStatus operationStatus = OperationStatus.of(
-                    "FAILURE",
-                    false,
-                    true,
-                    e.getMessage()
-            );
+            OperationStatus operationStatus = OperationStatus.failure(e.getMessage());
             TransactionResponse transactionResponse = TransactionMapper.failureResponse(
                     null,
                     "Cannot return transaction",
@@ -467,12 +431,7 @@ public class TransactionServiceImpl implements TransactionService{
             return TransactionMapper.toResponse(transaction, OperationStatus.SUCCESS);
 
         } catch (IllegalArgumentException | TransactionNotFoundException | IllegalStateException e) {
-            OperationStatus operationStatus = OperationStatus.of(
-                    "FAILURE",
-                    false,
-                    true,
-                    e.getMessage()
-            );
+            OperationStatus operationStatus = OperationStatus.failure(e.getMessage());
             TransactionResponse transactionResponse = TransactionMapper.failureResponse(
                     null,
                     "Cannot reject transaction",

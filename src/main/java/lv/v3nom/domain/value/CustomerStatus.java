@@ -1,7 +1,12 @@
 package lv.v3nom.domain.value;
 
+import java.util.HashMap;
+import java.util.Map;
+
 public final class CustomerStatus {
     public final String value;
+
+    private static final Map<String, CustomerStatus> CACHE = new HashMap<>();
 
     private CustomerStatus(String value) {
         if (value.isBlank() || value == null) {
@@ -21,17 +26,24 @@ public final class CustomerStatus {
     public static final CustomerStatus CLOSED =
             new CustomerStatus("CLOSED");
 
-    public static CustomerStatus of(String value) {
-        if (value != CustomerStatus.PENDING_VERIFICATION.value
-                || value != CustomerStatus.ACTIVE.value
-                || value != CustomerStatus.SUSPENDED.value
-                || value != CustomerStatus.BANNED.value
-                || value != CustomerStatus.CLOSED.value) {
+    static {
+        CACHE.put("PENDING_VERIFICATION", PENDING_VERIFICATION);
+        CACHE.put("ACTIVE", ACTIVE);
+        CACHE.put("SUSPENDED", SUSPENDED);
+        CACHE.put("BANNED", BANNED);
+        CACHE.put("CLOSED", CLOSED);
+    }
 
-            throw new IllegalArgumentException("Wrong account status format");
+    public static CustomerStatus of(String value) {
+        if (value == null) {
+            throw new IllegalArgumentException("of() -> CustomerStatus cannot be null");
         }
 
-        return new CustomerStatus(value);
+        CustomerStatus status = CACHE.get(value);
+        if (status == null) {
+            throw new IllegalArgumentException("of() -> Wrong CustomerStatus format: " + value);
+        }
+        return status;
     }
 
     @Override

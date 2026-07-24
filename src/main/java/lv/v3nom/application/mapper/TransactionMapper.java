@@ -3,7 +3,6 @@ package lv.v3nom.application.mapper;
 import lv.v3nom.application.dto.requests.DepositRequest;
 import lv.v3nom.application.dto.requests.TransferRequest;
 import lv.v3nom.application.dto.requests.WithdrawRequest;
-import lv.v3nom.application.dto.responses.AccountResponse;
 import lv.v3nom.application.dto.responses.TransactionHistoryResponse;
 import lv.v3nom.application.dto.responses.TransactionResponse;
 import lv.v3nom.application.dto.responses.TransactionSummaryResponse;
@@ -55,11 +54,11 @@ public class TransactionMapper {
                 transaction.getTransactionStatus().getValue(),
                 transaction.getSourceAccount().getValue(),
                 transaction.getTargetAccount().getValue(),
-                transaction.getCurrency().toString(),
+                transaction.getCurrency().value(),
                 transaction.getAmount().getValue(),
                 transaction.getFailureReason(),
                 transaction.getCreatedAt().toString(),
-                transaction.getCompletedAt().toString(),
+                transaction.getCompletedAt() != null ? transaction.getCompletedAt().toString() : null,
                 operationStatus.getValue(),
                 operationStatus.getDescription()
         );
@@ -87,7 +86,7 @@ public class TransactionMapper {
 
         return new TransactionResponse(
                 null,
-                transactionType.getTransactionCode(),
+                transactionType != null ? transactionType.getTransactionCode() : null,
                 null,
                 null,
                 null,

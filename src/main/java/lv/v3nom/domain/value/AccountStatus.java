@@ -1,8 +1,16 @@
 package lv.v3nom.domain.value;
 
+import java.util.HashMap;
+import java.util.Map;
+
+import static lv.v3nom.domain.value.CustomerStatus.BANNED;
+import static lv.v3nom.domain.value.CustomerStatus.SUSPENDED;
+
 @SuppressWarnings("ClassCanBeRecord")
 public final class AccountStatus {
     private final String value;
+
+    private static final Map<String, AccountStatus> CACHE = new HashMap<>();
 
     private AccountStatus(String value) {
         if (value == null || value.isBlank()) {
@@ -22,17 +30,24 @@ public final class AccountStatus {
     public static final AccountStatus BLOCKED =
             new AccountStatus("BLOCKED");
 
-    public static AccountStatus of(String value) {
-        if (value != AccountStatus.PENDING_VERIFICATION.value
-                || value != AccountStatus.ACTIVE.value
-                || value != AccountStatus.CLOSED.value
-                || value != AccountStatus.FROZEN.value
-                || value != AccountStatus.BLOCKED.value) {
+    static {
+        CACHE.put("PENDING_VERIFICATION", PENDING_VERIFICATION);
+        CACHE.put("ACTIVE", ACTIVE);
+        CACHE.put("CLOSED", CLOSED);
+        CACHE.put("FROZEN", FROZEN);
+        CACHE.put("BLOCKED", BLOCKED);
+    }
 
-            throw new IllegalArgumentException("Wrong account status format");
+    public static AccountStatus of(String value) {
+        if (value == null) {
+            throw new IllegalArgumentException("of() -> AccountStatus cannot be null");
         }
 
-        return new AccountStatus(value);
+        AccountStatus status = CACHE.get(value);
+        if (status == null) {
+            throw new IllegalArgumentException("of() -> Wrong AccountStatus format: " + value);
+        }
+        return status;
     }
 
     @Override

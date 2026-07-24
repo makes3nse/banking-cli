@@ -4,6 +4,7 @@ import lv.v3nom.application.dto.requests.*;
 import lv.v3nom.domain.value.IdempotencyKey;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 
@@ -113,11 +114,16 @@ public class InputParser {
 
     // Transaction History
     public TransactionHistoryRequest parseTransactionHistory(String token, String accountId, String fromDate, String toDate) {
+        // adding defaults to localDate, making them technically localDateTime strings
+        // lazy conversion
+        LocalDate fromDateFixed = fromDate.isBlank() ? LocalDate.of(2000, 01, 01) : LocalDate.parse(fromDate, INPUT_FORMATTER);
+        LocalDate toDateFixed = toDate.isBlank() ? LocalDate.now() : LocalDate.parse(toDate, INPUT_FORMATTER);
+
         return new TransactionHistoryRequest(
                 token,
                 accountId,
-                LocalDateTime.parse(fromDate, INPUT_FORMATTER).toString(),
-                LocalDateTime.parse(toDate, INPUT_FORMATTER).toString()
+                fromDateFixed.atStartOfDay().toString(),
+                toDateFixed.atTime(23,59,59).toString()
         );
     }
     public TransactionDetailsRequest parseTransactionDetails(String token, String accountId, String transactionId) {
