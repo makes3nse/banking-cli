@@ -113,6 +113,7 @@ public class StorageMapper {
             AccountId targetAccount = AccountId.of(transactionStorageDTO.getTargetAccount());
             TransactionType transactionType = TransactionType.of(transactionStorageDTO.getTransactionType());
             TransactionStatus transactionStatus = TransactionStatus.of(transactionStorageDTO.getTransactionStatus());
+            System.out.println(transactionStatus.getValue());
             LocalDateTime createdAt = LocalDateTime.parse(transactionStorageDTO.getCreatedAt());
             LocalDateTime completedAt = transactionStorageDTO.getCompletedAt() != null ?
                     LocalDateTime.parse(transactionStorageDTO.getCompletedAt()) : null;
