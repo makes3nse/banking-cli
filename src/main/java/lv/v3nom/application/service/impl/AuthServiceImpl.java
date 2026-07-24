@@ -12,21 +12,23 @@ import lv.v3nom.infrastructure.security.TokenProvider;
 import lv.v3nom.infrastructure.security.TokenStore;
 import lv.v3nom.infrastructure.time.impl.SystemDateTimeProvider;
 
+import java.util.function.Supplier;
+
 public class AuthServiceImpl implements AuthService {
-    private final CustomerService customerService;
+    private final Supplier<CustomerService> customerServiceFactory;
     private final TokenProvider tokenProvider;
     private final TokenStore tokenStore;
     private final IdempotencyStore idempotencyStore;
     private final Gson gson;
 
-    public AuthServiceImpl(CustomerService customerService,
+    public AuthServiceImpl(Supplier<CustomerService> customerServiceFactory,
                            TokenProvider tokenProvider,
                            TokenStore tokenStore,
                            IdempotencyStore idempotencyStore,
                            Gson gson) {
 
         this.tokenProvider = tokenProvider;
-        this.customerService = customerService;
+        this.customerServiceFactory = customerServiceFactory;
         this.tokenStore = tokenStore;
         this.idempotencyStore = idempotencyStore;
         this.gson = gson;
@@ -50,6 +52,8 @@ public class AuthServiceImpl implements AuthService {
                     emailAddress.getValue(), idempotencyKey.getValue()
             );
             CachedResponse cachedResponse = getCachedResponseFromEmail(getCachedResponseFromEmailRequest);
+            System.out.println("Login - Checking cache for email: " + emailAddress.getValue());
+
             if (cachedResponse.getErrorMessage() != null) {
                 System.err.println("Cache retrieval failed: " + cachedResponse.getErrorMessage());
             }
@@ -57,23 +61,43 @@ public class AuthServiceImpl implements AuthService {
                 LogInResponse logInResponse = gson.fromJson(
                         cachedResponse.getResponseJson(),
                         LogInResponse.class);
+                System.out.println("Login - Using cached response for customer: " + logInResponse.getCustomerId());
 
                 return  logInResponse;
             }
+            System.out.println("Login - No cache, fetching customer by email: " + emailAddress.getValue());
 
             GetCustomerByEmailRequest getCustomerByEmailRequest = new GetCustomerByEmailRequest(
                     emailAddress.getValue()
             );
-            CustomerResponse customerResponse = customerService.getCustomerByEmail(getCustomerByEmailRequest);
+            CustomerResponse customerResponse = customerServiceFactory.get().getCustomerByEmail(getCustomerByEmailRequest);
+            System.out.println("Login - Found customer with ID: " + customerResponse.getCustomerId());
+
+            // fix -> verify the customer exists in the repository
+            if (customerResponse.getCustomerId() == null) {
+                System.out.println("Login - Customer not found!");
+                return new LogInResponse(
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        OperationStatus.FAILURE.getValue(),
+                        OperationStatus.FAILURE.isOperational(),
+                        "Customer not found with email: " + emailAddress.getValue()
+                );
+            }
 
             ValidateLoginCredentialsRequest validateLoginCredentialsRequest = new ValidateLoginCredentialsRequest(
                     customerResponse.getCustomerId(),
                     request.getPassword(),
                     emailAddress.getValue()
             );
-            BooleanResponse validateLoginResponse = customerService.validateLoginCredentials(validateLoginCredentialsRequest);
+            BooleanResponse validateLoginResponse = customerServiceFactory.get().validateLoginCredentials(validateLoginCredentialsRequest);
             boolean isAuthenticated = validateLoginResponse.value();
             if (!isAuthenticated || validateLoginResponse.getErrorMessage() != null) {
+                System.out.println("Login - Authentication failed: " + validateLoginResponse.getErrorMessage());
                 return new LogInResponse(
                         customerResponse.getCustomerId(),
                         null,
@@ -92,6 +116,8 @@ public class AuthServiceImpl implements AuthService {
             );
             tokenStore.cleanExpired(time.now());
             tokenStore.store(sessionToken);
+
+            System.out.println("Login - Session token generated for customer: " + customerResponse.getCustomerId());
 
             LogInResponse logInResponse = new LogInResponse(
                     customerResponse.getCustomerId(),
@@ -118,13 +144,10 @@ public class AuthServiceImpl implements AuthService {
 
             return logInResponse;
 
-        } catch (IllegalArgumentException | JsonSyntaxException e) {
-            OperationStatus operationStatus = OperationStatus.of(
-                    "FAILURE",
-                    false,
-                    true,
-                    e.getMessage()
-            );
+        } //catch (IllegalArgumentException | JsonSyntaxException | Exception e) {
+        catch (Exception e) {
+            System.err.println("Login error: " + e.getMessage());
+            OperationStatus operationStatus = OperationStatus.failure(e.getMessage());
             LogInResponse logInResponse = new LogInResponse(
                     null,
                     null,
@@ -225,7 +248,7 @@ public class AuthServiceImpl implements AuthService {
                     IdempotencyKey.of(request.getIdempotencyKey())
             );
             if (cachedResponseJSON == null) {
-                return null;
+                throw new IllegalStateException("There is no cached response from current email");
             }
 
             return new CachedResponse(
@@ -234,13 +257,8 @@ public class AuthServiceImpl implements AuthService {
                     null
             );
 
-        } catch (IllegalArgumentException | JsonSyntaxException e) {
-            OperationStatus operationStatus = OperationStatus.of(
-                    "FAILURE",
-                    false,
-                    true,
-                    e.getMessage()
-            );
+        } catch (IllegalArgumentException | IllegalStateException | JsonSyntaxException e) {
+            OperationStatus operationStatus = OperationStatus.failure(e.getMessage());
             CachedResponse cachedResponse = new CachedResponse(
                     null,
                     null,
@@ -258,7 +276,7 @@ public class AuthServiceImpl implements AuthService {
                     IdempotencyKey.of(request.getIdempotencyKey())
             );
             if (cachedResponseJSON == null) {
-                return null;
+                throw new IllegalStateException("There is no cached response from current email");
             }
 
             return new CachedResponse(
@@ -267,13 +285,8 @@ public class AuthServiceImpl implements AuthService {
                     null
             );
 
-        } catch (IllegalArgumentException | JsonSyntaxException e) {
-            OperationStatus operationStatus = OperationStatus.of(
-                    "FAILURE",
-                    false,
-                    true,
-                    e.getMessage()
-            );
+        } catch (IllegalArgumentException | IllegalStateException | JsonSyntaxException e) {
+            OperationStatus operationStatus = OperationStatus.failure(e.getMessage());
             CachedResponse cachedResponse = new CachedResponse(
                     null,
                     null,

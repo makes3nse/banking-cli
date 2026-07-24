@@ -99,7 +99,7 @@ public class CommandHandler {
     public Screen handleMainMenu(Scanner scanner) {
         UserContext userContext = sessionManager.getUser();
 
-        xeRenderer.showMainMenu(String.format("%s | %s", userContext.getName(), userContext.getCustomerId()));
+        xeRenderer.showMainMenu(String.format("%s | %s | %s", userContext.getName(), userContext.getCustomerId(), userContext.getStatus()));
         switch (scanner.nextLine()) {
             //ACCOUNTS
             case "1":
@@ -167,7 +167,12 @@ public class CommandHandler {
         RegisterCustomerRequest registerCustomerRequest = parser.parseRegister(regName, regEmail, regPhone, regPassword);
         RegisterCustomerResponse registerCustomerResponse = customerService.register(registerCustomerRequest);
 
+        // Add debug logging
+        System.out.println("Registration response status: " + registerCustomerResponse.getOperationStatus());
+        System.out.println("Registration response: " + registerCustomerResponse);
+
         if (!registerCustomerResponse.getOperationStatus().equals("FAILURE")) {
+            System.out.println("Registration successful! Saving session...");
             sessionManager.saveToken(registerCustomerResponse.getSessionToken());
             sessionManager.saveUser(new UserContext(
                     registerCustomerResponse.getCustomerId(),
@@ -176,8 +181,10 @@ public class CommandHandler {
                     registerCustomerResponse.getPhone(),
                     registerCustomerResponse.getStatus()
             ));
+            System.out.println("Session saved. Customer ID: " + registerCustomerResponse.getCustomerId());
             return new BooleanResponse(true, null);
         }
+        System.out.println("Registration failed: " + registerCustomerResponse.getErrorMessage());
         return new BooleanResponse(false, registerCustomerResponse.getErrorMessage());
     }
     public BooleanResponse handleLogin(Scanner scanner) {
@@ -284,20 +291,16 @@ public class CommandHandler {
         switch (scanner.nextLine().trim()) {
             //USD
             case "1":
-                handleOpenAccountWithCurrency("USD");
-                break;
+                return handleOpenAccountWithCurrency("USD");
             //EUR
             case "2":
-                handleOpenAccountWithCurrency("EUR");
-                break;
+                return handleOpenAccountWithCurrency("EUR");
             //RUB
             case "3":
-                handleOpenAccountWithCurrency("RUB");
-                break;
+                return handleOpenAccountWithCurrency("RUB");
             //GBP
             case "4":
-                handleOpenAccountWithCurrency("GBP");
-                break;
+                return handleOpenAccountWithCurrency("GBP");
             //MENU
             case "m":
                 return Screen.MAIN_MENU;
@@ -420,22 +423,22 @@ public class CommandHandler {
         switch (scanner.nextLine()) {
             //DEPOSIT
             case "1":
-                handleDeposit(scanner);
+                return handleDeposit(scanner);
             //WITHDRAW
             case "2":
-                handleWithdraw(scanner);
+                return handleWithdraw(scanner);
             //TRANSFER
             case "3":
-                handleTransfer(scanner);
+                return handleTransfer(scanner);
             //TRANSACTION HISTORY
             case "4":
-                handleTransactionHistory(scanner);
+                return handleTransactionHistory(scanner);
             //FREEZE/UNFREEZE
             case "5":
-                handleFreezeUnfreeze(scanner);
+                return handleFreezeUnfreeze(scanner);
             //CLOSE ACCOUNT
             case "6":
-                handleCloseAccount(scanner);
+                return handleCloseAccount(scanner);
             //BACK
             case "b":
                 return Screen.ACCOUNT_LIST;
@@ -466,7 +469,18 @@ public class CommandHandler {
                 amount,
                 selectedAccount.getCurrency()
         );
+        System.out.println("selected account: " + selectedAccount.getAccountId() + " | " + selectedAccount.getStatus() + " | " + selectedAccount.getErrorMessage());
+        System.out.println("Deposit for " + depositRequest.getAccountId() + " amount: " + depositRequest.getAmount());
         tempTransaction = accountService.deposit(depositRequest); // saved for next screen
+        System.out.println("tempTransaction status: " + tempTransaction.getOperationStatus() + tempTransaction.getErrorMessage());
+
+        // update account details, so when we go back from the transaction details we see new data in account details
+        if (tempTransaction.getOperationStatus().equals("SUCCESS")) {
+            GetAccountDetailsRequest request = new GetAccountDetailsRequest(
+                    sessionToken, selectedAccount.getAccountId()
+            );
+            selectedAccount = accountService.getAccountDetails(request);
+        }
 
         //don't need to validate. if exception occurs we are going to see it in transaction detals
         return Screen.TRANSACTION_RESULT;
@@ -483,6 +497,13 @@ public class CommandHandler {
                 selectedAccount.getCurrency()
         );
         tempTransaction = accountService.withdraw(withdrawRequest); // saved for next screen
+
+        if (tempTransaction.getOperationStatus().equals("SUCCESS")) {
+            GetAccountDetailsRequest request = new GetAccountDetailsRequest(
+                    sessionToken, selectedAccount.getAccountId()
+            );
+            selectedAccount = accountService.getAccountDetails(request);
+        }
 
         //don't need to validate. if exception occurs we are going to see it in transaction details
         return Screen.TRANSACTION_RESULT;
@@ -503,6 +524,13 @@ public class CommandHandler {
                 selectedAccount.getCurrency()
         );
         tempTransaction = accountService.transfer(transferRequest); // saved for next screen
+
+        if (tempTransaction.getOperationStatus().equals("SUCCESS")) {
+            GetAccountDetailsRequest request = new GetAccountDetailsRequest(
+                    sessionToken, selectedAccount.getAccountId()
+            );
+            selectedAccount = accountService.getAccountDetails(request);
+        }
 
         //don't need to validate. if exception occurs we are going to see it in transaction details
         return Screen.TRANSACTION_RESULT;
@@ -572,21 +600,22 @@ public class CommandHandler {
 
     // TODO
     public Screen handleProfileSettings(Scanner scanner) {
+        UserContext userContext = sessionManager.getUser();
         while (true) {
-            xeRenderer.showProfileSettings();
+            xeRenderer.showProfileSettings(userContext);
             switch (scanner.nextLine().trim()) {
                 //CHANGE NAME
                 case "1":
-                    handleChangeName(scanner);
+                    return handleChangeName(scanner);
                 //CHANGE EMAIL
                 case "2":
-                    handleChangeEmail(scanner);
+                    return handleChangeEmail(scanner);
                 //CHANGE PHONE
-                case "4":
-                    handleChangePhone(scanner);
+                case "3":
+                    return handleChangePhone(scanner);
                 //CHANGE PASSWORD
-                case "5":
-                    handleChangePassword(scanner);
+                case "4":
+                    return handleChangePassword(scanner);
                 //MAIN
                 case "m":
                     return Screen.MAIN_MENU;

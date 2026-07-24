@@ -3,6 +3,7 @@ package lv.v3nom.infrastructure.idempotency;
 import lv.v3nom.domain.value.CustomerId;
 import lv.v3nom.domain.value.EmailAddress;
 import lv.v3nom.domain.value.IdempotencyKey;
+import lv.v3nom.infrastructure.config.IdempotencyConfig;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -11,8 +12,9 @@ public class IdempotencyStore {
     private final Map<String, IdempotencyEntryJSON> idempotencyStore = new HashMap<>();
     private final long ttlMillis;
 
-    public IdempotencyStore(long ttlSeconds) {
-        this.ttlMillis = ttlSeconds * 1000;
+    public IdempotencyStore(IdempotencyConfig cfg) {
+        /*this.ttlMillis = ttlSeconds * 1000;*/
+        this.ttlMillis = cfg.getTime();
     }
 
     // Redundant, direct object access only can be used in Monolith architecture

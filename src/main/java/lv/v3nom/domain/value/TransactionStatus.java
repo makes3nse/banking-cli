@@ -1,8 +1,13 @@
 package lv.v3nom.domain.value;
 
+import java.util.HashMap;
+import java.util.Map;
+
 @SuppressWarnings("ClassCanBeRecord")
 public final class TransactionStatus {
     private final String value;
+
+    private static final Map<String, TransactionStatus> CACHE = new HashMap<>();
 
     private TransactionStatus(String value) {
         if (value.isBlank() || value == null) {
@@ -15,11 +20,30 @@ public final class TransactionStatus {
     public static final TransactionStatus PENDING =
             new TransactionStatus("PENDING");
     public static final TransactionStatus COMPLETED =
-            new TransactionStatus("COMPLETE");
+            new TransactionStatus("COMPLETED");
     public static final TransactionStatus REJECTED =
             new TransactionStatus("REJECTED");
     public static final TransactionStatus RETURNED =
             new TransactionStatus("RETURNED");
+
+    static {
+        CACHE.put("PENDING", PENDING);
+        CACHE.put("COMPLETED", COMPLETED);
+        CACHE.put("REJECTED", REJECTED);
+        CACHE.put("RETURNED", RETURNED);
+    }
+
+    public static TransactionStatus of(String value) {
+        if (value == null) {
+            throw new IllegalArgumentException("of() -> TransactionStatus cannot be null");
+        }
+
+        TransactionStatus status = CACHE.get(value);
+        if (status == null) {
+            throw new IllegalArgumentException("of() -> Wrong Transaction status format: " + value);
+        }
+        return status;
+    }
 
     @Override
     public boolean equals(Object o) {

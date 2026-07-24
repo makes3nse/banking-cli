@@ -33,10 +33,7 @@ public final class CustomerId {
     }
     @Override
     public String toString() {
-        return String.format(
-                "CustomerId{value='%s'}",
-                value
-        );
+        return String.valueOf(value);
     }
 
     public String getValue() { return this.value; }

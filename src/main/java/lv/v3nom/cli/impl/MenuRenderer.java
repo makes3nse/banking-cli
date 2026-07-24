@@ -59,20 +59,26 @@ public class MenuRenderer {
         clearScreen();
         List<AccountResponse> accounts = accountListResponse.getAccountResponses();
         for (int i = 0; i < accounts.size(); i++) {
-            System.out.println(String.format(
-                    "%s. %s | %s | %s",
-                    i,
-                    accounts.get(i).getAccountId(),
-                    accounts.get(i).getCurrency(),
-                    accounts.get(i).getBalance())
-            );
+            if (!accounts.get(i).getStatus().equalsIgnoreCase("CLOSED")) {
+                System.out.println(String.format(
+                        "%s. %s | %s | %s | %s",
+                        i,
+                        accounts.get(i).getAccountId(),
+                        accounts.get(i).getCurrency(),
+                        accounts.get(i).getStatus(),
+                        accounts.get(i).getBalance())
+                );
+            }
         }
         System.out.println("\n(m — main menu)");
         System.out.print("Option: ");
     }
-    public void showProfileSettings() {
+    public void showProfileSettings(UserContext selectedCustomer) {
         clearScreen();
-        System.out.println("1.Change Name");
+        System.out.println("Name: " + selectedCustomer.getName());
+        System.out.println("Email: " + selectedCustomer.getEmail());
+        System.out.println("Phone: " + selectedCustomer.getPhone());
+        System.out.println("\n1.Change Name");
         System.out.println("2.Change Email");
         System.out.println("3.Change Phone");
         System.out.println("4.Change Password");
@@ -81,10 +87,10 @@ public class MenuRenderer {
     }
     public void showAccountSettings(AccountResponse account) {
         clearScreen();
-        System.out.println("Account ID: ");
-        System.out.println("    Status: ");
-        System.out.println("  Currency: ");
-        System.out.println("   Balance: ");
+        System.out.println("Account ID: " + account.getAccountId());
+        System.out.println("    Status: " + account.getStatus());
+        System.out.println("  Currency: " + account.getCurrency());
+        System.out.println("   Balance: " + account.getBalance());
         System.out.println("\n1.Deposit");
         System.out.println("2.Withdraw");
         System.out.println("3.Transfer");
@@ -99,7 +105,7 @@ public class MenuRenderer {
         }
         System.out.println("\n6.Close Account");
 
-        if (account.getOperationStatus() != "SUCCESS") {
+        if (account.getOperationStatus().equals("FAILURE")) {
             clearScreen();
             System.out.println(" Operation: " + account.getOperationStatus());
             System.out.println("     Error: " + account.getErrorMessage());
@@ -166,11 +172,13 @@ public class MenuRenderer {
     public void promptFromDate() {
         clearScreen();
         System.out.print("Correct format: dd.MM.yyyy (e.g. 25.01.2001)");
+        System.out.print("Press ENTER to fetch ALL transactions");
         System.out.print("FROM Date: ");
     }
     public void promptToDate() {
         clearScreen();
         System.out.print("Correct format: dd.MM.yyyy (e.g. 25.01.2001)");
+        System.out.print("Press ENTER to fetch ALL transactions");
         System.out.print("TO Date: ");
     }
 
@@ -231,7 +239,7 @@ public class MenuRenderer {
         List<TransactionSummaryResponse> transactions = response.getTransactions();
         int i = 0;
         for (TransactionSummaryResponse t : transactions) {
-            System.out.println(String.format("%s. %s | %s", i, t.getTransactionId(), t.getType()));
+            System.out.println(String.format("%s. %s | %s | %s | %s", i, t.getTransactionId(), t.getCurrency(), t.getType(), t.getAmount()));
             i++;
         }
         System.out.println("\n(b — back, m — main menu)");

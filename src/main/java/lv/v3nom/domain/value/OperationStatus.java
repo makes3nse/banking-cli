@@ -1,10 +1,15 @@
 package lv.v3nom.domain.value;
 
+import java.util.HashMap;
+import java.util.Map;
+
 public final class OperationStatus {
     private final String value;
     private final boolean isOperational;
     private final boolean isStable;
     private final String description;
+
+    private static final Map<String, OperationStatus> CACHE = new HashMap<>();
 
     private OperationStatus(String value,
                             boolean isOperational,
@@ -21,14 +26,6 @@ public final class OperationStatus {
         this.description = description;
     }
 
-    public static OperationStatus of(String value,
-                                     boolean isOperational,
-                                     boolean isStable,
-                                     String description) {
-
-        return new OperationStatus(value, isOperational, isStable, description);
-    }
-
     public static final OperationStatus PROCESSING =
             new OperationStatus("PROCESSING", true, true, "");
     public static final OperationStatus SUCCESS =
@@ -39,18 +36,27 @@ public final class OperationStatus {
             new OperationStatus("UNKNOWN", true, false, "");
 
     public static OperationStatus of(String value) {
+        if (value == null) return OperationStatus.failure("of() received 'null' as OperationStatus value");
+
         switch (value) {
-            case "PROCESSING":
-                return OperationStatus.PROCESSING;
-            case "SUCCESS":
-                return OperationStatus.SUCCESS;
-            case "FAILURE":
-                return OperationStatus.FAILURE;
-            case "UNKNOWN":
-                return OperationStatus.UNKNOWN;
-            default:
-                throw new IllegalArgumentException("Wrong operation status format");
+            case "PROCESSING": return OperationStatus.processing();
+            case "SUCCESS": return OperationStatus.success();
+            case "FAILURE": return OperationStatus.failure(value);
+            case "UNKNOWN": return OperationStatus.unknown();
+            default: return OperationStatus.failure("of() received INVALID FORMAT as OperationStatus value");
         }
+    }
+    public static OperationStatus processing() {
+        return new OperationStatus("PROCESSING", true, true, "");
+    }
+    public static OperationStatus success() {
+        return new OperationStatus("SUCCESS", true, true, "");
+    }
+    public static OperationStatus failure(String message) {
+        return new OperationStatus("FAILURE", false, true, message);
+    }
+    public static OperationStatus unknown() {
+        return new OperationStatus("UNKNOWN", true, false, "");
     }
 
     @Override
