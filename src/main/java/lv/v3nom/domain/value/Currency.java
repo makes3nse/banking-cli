@@ -27,4 +27,8 @@ public record Currency(String value) {
     public int getDefaultFractionDigits() {
         return java.util.Currency.getInstance(value).getDefaultFractionDigits();
     }
+    @Override
+    public String toString() {
+        return String.valueOf(value);
+    }
 }
