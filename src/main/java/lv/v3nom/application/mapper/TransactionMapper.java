@@ -54,7 +54,7 @@ public class TransactionMapper {
                 transaction.getTransactionStatus().getValue(),
                 transaction.getSourceAccount().getValue(),
                 transaction.getTargetAccount().getValue(),
-                transaction.getCurrency().toString(),
+                transaction.getCurrency().value(),
                 transaction.getAmount().getValue(),
                 transaction.getFailureReason(),
                 transaction.getCreatedAt().toString(),
