@@ -1,5 +1,7 @@
 package lv.v3nom.domain.value;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Objects;
 
 @SuppressWarnings("ClassCanBeRecord")
@@ -8,6 +10,8 @@ public final class TransactionType {
     private final String transactionName;
     private final boolean affectsBalance;
     private final boolean requiresRecipient;
+
+    private static final Map<String, TransactionType> CACHE = new HashMap<>();
 
     private TransactionType(
             String transactionCode,
@@ -35,21 +39,23 @@ public final class TransactionType {
     public static final TransactionType INTEREST =
             new TransactionType("INT", "INTEREST", true, false);
 
-    public static TransactionType of(String transactionName) {
-        switch (transactionName) {
-            case "DEPOSIT":
-                return TransactionType.DEPOSIT;
-            case "WITHDRAW":
-                return TransactionType.WITHDRAW;
-            case "TRANSFER":
-                return TransactionType.TRANSFER;
-            case "FEE":
-                return TransactionType.FEE;
-            case "INTEREST":
-                return TransactionType.INTEREST;
-            default:
-                throw new IllegalArgumentException("Wrong transaction type format");
+    static {
+        CACHE.put("DEPOSIT", DEPOSIT);
+        CACHE.put("WITHDRAW", WITHDRAW);
+        CACHE.put("TRANSFER", TRANSFER);
+        CACHE.put("FEE", FEE);
+        CACHE.put("INTEREST", INTEREST);
+    }
+    public static TransactionType of(String value) {
+        if (value == null) {
+            throw new IllegalArgumentException("of() -> TransactionType cannot be null");
         }
+
+        TransactionType type = CACHE.get(value);
+        if (type == null) {
+            throw new IllegalArgumentException("of() -> Wrong TransactionType format: " + value);
+        }
+        return type;
     }
     public boolean affectsBalance() {
         return affectsBalance;
