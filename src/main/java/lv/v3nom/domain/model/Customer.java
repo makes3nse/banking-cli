@@ -36,6 +36,7 @@ public class Customer {
         this.password = password;
         this.hasher = hasher;
         this.createdAt = createdAt;
+        this.updatedAt = createdAt;
     }
 
     public static Customer register(String name,
@@ -114,7 +115,12 @@ public class Customer {
         this.phoneNumber = newPhoneNumber;
     }
     public void changePassword(String oldPwd, String newPwd, PasswordHasher hasher) {
-        if (this.password.matches(oldPwd, hasher)) {
+        //check if old pwd is bad
+        if (!this.password.matches(oldPwd, hasher)) {
+            throw new IllegalStateException("Old password is incorrect.");
+        }
+        //check if they are the same
+        if (this.password.matches(newPwd, hasher)) {
             throw new IllegalStateException("New password cannot be identical to old password.");
         }
         this.password = Password.fromRaw(newPwd, hasher);
