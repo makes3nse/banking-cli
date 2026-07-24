@@ -1,5 +1,7 @@
 package lv.v3nom.domain.value;
 
+import jdk.jshell.execution.LocalExecutionControl;
+
 import java.time.LocalDateTime;
 import java.util.Objects;
 
@@ -32,9 +34,9 @@ public final class Token {
         if (value.length() < 32) {
             throw new IllegalArgumentException("Token is shorter than expected: " + value.length());
         }
-        if (value.matches("^[A-Za-z0-9_-]+$")) {
-            throw new IllegalArgumentException("Token contains invalid characters");
-        }
+        return new Token(value, expiry, customerId);
+    }
+    public static Token of(String value, LocalDateTime expiry, CustomerId customerId) {
         return new Token(value, expiry, customerId);
     }
 
