@@ -19,7 +19,7 @@ public class SessionManagerImpl implements SessionManager {
     private final Path sessionFile = Paths.get(System.getProperty("user.dir"), ".session");
     private final Path userFile = Paths.get(System.getProperty("user.dir"), ".user");
     private String currentToken;
-    private volatile UserContext user;
+    private UserContext user;
 
     public SessionManagerImpl(AuthService authService, Gson gson) {
         this.authService = authService;
@@ -30,7 +30,9 @@ public class SessionManagerImpl implements SessionManager {
     public void saveToken(String token) {
         try {
             Files.writeString(sessionFile, token);
+            System.out.println("SesMgr: saveToken() -> saved " + token);
         } catch (IOException e) {
+            System.out.println("SesMgr: saveToken() -> failed " + e.getMessage());
             throw new RuntimeException(e);
         }
         this.currentToken = token;
@@ -39,24 +41,32 @@ public class SessionManagerImpl implements SessionManager {
     public void saveUser(UserContext user) {
         try {
             Files.writeString(userFile, gson.toJson(user));
+            System.out.println("SesMgr: saveUser() -> saved " + user.getCustomerId() + " | " + user.getEmail());
         } catch (IOException | JsonSyntaxException e) {
+            System.out.println("SesMgr: saveUser() -> failed " + e.getMessage());
             throw new RuntimeException(e);
         }
         this.user = Objects.requireNonNull(user);
     }
     @Override
     public String getToken() {
-        if (currentToken != null) return currentToken;
+        if (currentToken != null) {
+            System.out.println("SesMgr: getToken() -> token: " + currentToken);
+            return currentToken;
+        }
         if (Files.exists(sessionFile)) {
             try {
                 currentToken = Files.readString(sessionFile).trim();
+                System.out.println("SesMgr: getToken() -> token: " + currentToken);
                 return currentToken;
 
             } catch (IOException e) {
                 currentToken = null;
+                System.out.println("SesMgr: getToken() -> token: " + currentToken);
                 throw new RuntimeException(e);
             }
         }
+        System.out.println("SesMgr: getToken() -> token: " + currentToken);
         return null;
     }
     @Override
@@ -73,6 +83,8 @@ public class SessionManagerImpl implements SessionManager {
     @Override
     public boolean isLoggedIn() {
         String token = getToken();
+        UserContext user = getUser();
+
         if (token == null || user == null) return false;
         BooleanResponse isValidToken = authService.validateToken(
                 new ValidateTokenRequest(token)
@@ -81,16 +93,22 @@ public class SessionManagerImpl implements SessionManager {
     }
     @Override
     public UserContext getUser() {
-        if (user != null) return user;
+        if (user != null) {
+            System.out.println("SesMgr: getUser() -> user: " + user);
+            return user;
+        }
         if (Files.exists(userFile)) {
             try {
                 user = gson.fromJson(Files.readString(userFile), UserContext.class);
+                System.out.println("SesMgr: getUser() -> user: " + user);
                 return user;
 
             } catch (IOException | JsonSyntaxException e) {
+                System.out.println("SesMgr: getUser() -> user: " + user);
                 throw new RuntimeException(e);
             }
         }
+        System.out.println("SesMgr: getUser() -> user: " + user);
         return null;
     }
 }
