@@ -17,23 +17,24 @@ import lv.v3nom.infrastructure.time.impl.SystemDateTimeProvider;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Supplier;
 
 public class AccountServiceImpl implements AccountService {
     private final AuthService authService;
     private final CustomerService customerService;
-    private final TransactionService transactionService;
+    private final Supplier<TransactionService> transactionServiceFactory;
     private final AccountRepository accountRepository;
     private final Gson gson;
 
     public AccountServiceImpl(AuthService authService,
                               CustomerService customerService,
-                              TransactionService transactionService,
+                              Supplier<TransactionService> transactionServiceFactory,
                               AccountRepository accountRepository,
                               Gson gson) {
 
         this.authService = authService;
         this.customerService = customerService;
-        this.transactionService = transactionService;
+        this.transactionServiceFactory = transactionServiceFactory;
         this.accountRepository = accountRepository;
         this.gson = gson;
     }
@@ -51,14 +52,20 @@ public class AccountServiceImpl implements AccountService {
 
         String sessionToken = request.getCurrentSessionToken();
         String idempotencyKey = request.getIdempotencyKey();
+        System.out.println("=== OPEN ACCOUNT START ===");
+        System.out.println("Session token: " + sessionToken);
+        System.out.println("Currency: " + request.getCurrency());
         AuthResponse authResponse = authService.authenticate(new AuthRequest(sessionToken));
+        System.out.println("Auth successful for customer: " + authResponse.getCustomerId());
 
         try {
             Currency currency = Currency.of(request.getCurrency());
             CustomerId authenticatedId = CustomerId.of(authResponse.getCustomerId());
+            System.out.println("Authenticated ID: " + authenticatedId.getValue());
 
             BooleanResponse tokenValidityResponse = authService.validateToken(new ValidateTokenRequest(sessionToken));
             boolean isValidToken = tokenValidityResponse.value();
+            System.out.println("Token valid: " + isValidToken);
             if (!isValidToken) {
                 String failureReason = String.format(
                         "Token: %s; IsValidToken: %s; User: %s;",
@@ -66,29 +73,30 @@ public class AccountServiceImpl implements AccountService {
                         isValidToken,
                         authenticatedId // is not null, cause if it would be, CustomerId.of() would throw IllegalArgumentException
                 );
-                OperationStatus operationStatus = OperationStatus.of(
-                        "FAILURE",
-                        false,
-                        true,
-                        failureReason
-                );
+                OperationStatus operationStatus = OperationStatus.failure(failureReason);
 
                 return AccountMapper.failureResponse(authResponse.getCustomerId(), operationStatus);
             }
 
+            System.out.println("Checking cache for idempotency key: " + idempotencyKey);
             GetCachedResponseFromIdRequest getCachedResponseFromIdRequest = new GetCachedResponseFromIdRequest(
                     authenticatedId.getValue(), idempotencyKey
             );
             CachedResponse cachedResponse = authService.getCachedResponseFromId(getCachedResponseFromIdRequest);
             if (cachedResponse.getErrorMessage() != null) {
+
                 System.err.println("Cache retrieval failed: " + cachedResponse.getErrorMessage());
             }
             if (cachedResponse.getErrorMessage() == null && cachedResponse.getResponseJson() != null) {
+                System.out.println("Using cached response");
                 AccountResponse accountResponse = gson.fromJson(
                         cachedResponse.getResponseJson(),
                         AccountResponse.class
                 );
+                System.out.println("Cached account response - ID: " + accountResponse.getAccountId());
                 return accountResponse;
+            } else {
+                System.out.println("No cached response found");
             }
 
             //  later add TOMCAT and separate services to different projects,
@@ -99,12 +107,14 @@ public class AccountServiceImpl implements AccountService {
             //  GetCustomerRequest request = new GetCustomerRequest(sessionToken);
             //  CustomerResponse customerResponse = restTemplate.postForObject(url, request, CustomerResponse.class);
 
+            System.out.println("Getting customer data...");
             CustomerResponse customerResponse = customerService.getCustomer(new GetCustomerRequest(sessionToken));
-
+            System.out.println("Customer status: " + customerResponse.getStatus());
             // WE DON'T NEED FULL CUSTOMER_ENTITY AS IT HAS PASSWORDS AND ALL THAT SHIT INSIDE,
             //  SO WE JUST NEED TO GET A GENERAL-PURPOSE CUSTOMER_RESPONSE WITHOUT SENSITIVE DATA,
             //  WE CAN RETRIEVE ALL NEEDED DATA FROM CUSTOMER_RESPONSE, SUCH AS _STATUS, _ID ETC.
-
+            System.out.println("Creating account...");
+            System.out.println(customerResponse);
             Account account = Account.open(
                     authenticatedId,
                     currency,
@@ -113,9 +123,24 @@ public class AccountServiceImpl implements AccountService {
             );
             // CHANGE ALL IDEMPOTENCY MECHANISMS IN THIS SERVICE AND ALL OTHER SERVICES,
             //  SO THEY STORE AND RETRIEVE JSON STRINGS AND SERIALIZE AND DESERIALIZE THEM WHEN NEEDED USING GSON.
-            accountRepository.save(account);
+            System.out.println("Account created - ID: " + account.getAccountId().getValue());
+            System.out.println("Account currency: " + account.getCurrency().value());
+            System.out.println("Account status: " + account.getAccountStatus().getValue());
+            System.out.println("Account balance: " + account.getBalance().getValue());
 
+            // Save account
+            System.out.println("Saving account to repository...");
+            accountRepository.save(account);
+            System.out.println("Account saved id: " + account.getAccountId());
+            // Map to response
+            System.out.println("Mapping to response...");
             AccountResponse response = AccountMapper.toResponse(account, OperationStatus.SUCCESS);
+            System.out.println("Account response - ID: " + response.getAccountId());
+            System.out.println("Account response - Status: " + response.getStatus());
+            System.out.println("Account response - Currency: " + response.getCurrency());
+            System.out.println("Account response - Balance: " + response.getBalance());
+            // Cache response
+            System.out.println("Caching response...");
             SaveCachedResponseFromIdRequest saveCachedResponseFromIdRequest = new SaveCachedResponseFromIdRequest(
                     authenticatedId.getValue(),
                     request.getIdempotencyKey(),
@@ -126,17 +151,17 @@ public class AccountServiceImpl implements AccountService {
             BooleanResponse saved = authService.saveCachedResponseFromId(saveCachedResponseFromIdRequest);
             if (!saved.value()) {
                 System.err.println("Cache save failed: " + saved.getErrorMessage());
+            } else {
+                System.out.println("Response cached successfully");
             }
-
+            System.out.println("=== OPEN ACCOUNT COMPLETE ===");
             return response;
 
         } catch (IllegalArgumentException | IllegalStateException | JsonSyntaxException e) {
-            OperationStatus operationStatus = OperationStatus.of(
-                    "FAILURE",
-                    false,
-                    false,
-                    e.getMessage()
-            );
+            System.err.println("=== OPEN ACCOUNT FAILED ===");
+            System.err.println("Error: " + e.getMessage());
+            e.printStackTrace();
+            OperationStatus operationStatus = OperationStatus.failure(e.getMessage());
 
             return AccountMapper.failureResponse(authResponse.getCustomerId(), operationStatus);
         }
@@ -182,7 +207,7 @@ public class AccountServiceImpl implements AccountService {
                         OperationStatus.FAILURE.getValue()
                 );
 
-                return transactionService.getFailureResponse(getFailureTransactionRequest);
+                return transactionServiceFactory.get().getFailureResponse(getFailureTransactionRequest);
             }
 
             GetCachedResponseFromIdRequest getCachedResponseFromIdRequest = new GetCachedResponseFromIdRequest(
@@ -201,6 +226,7 @@ public class AccountServiceImpl implements AccountService {
             }
 
             Account account = accountRepository.findById(accountId);
+            System.out.println("AccSvc: accRepo.findById " + account.getAccountId().getValue());
 
             boolean isOwnedByAuthenticatedCustomer = account.getOwnerId().equals(authenticatedId);
             if (!isOwnedByAuthenticatedCustomer) {
@@ -216,7 +242,7 @@ public class AccountServiceImpl implements AccountService {
                         OperationStatus.FAILURE.getValue()
                 );
 
-                return transactionService.getFailureResponse(getFailureTransactionRequest);
+                return transactionServiceFactory.get().getFailureResponse(getFailureTransactionRequest);
             }
             CreateTransactionRequest createPendingDepositTransactionRequest = new CreateTransactionRequest(
                     transactionType.getTransactionName(),
@@ -228,7 +254,7 @@ public class AccountServiceImpl implements AccountService {
                     accountId.getValue()
             );
             TransactionResponse pendingTransactionResponse =
-                    transactionService.createDepositTransaction(createPendingDepositTransactionRequest);
+                    transactionServiceFactory.get().createDepositTransaction(createPendingDepositTransactionRequest);
 
             account.deposit(amount, time.now());
             accountRepository.save(account);
@@ -236,7 +262,7 @@ public class AccountServiceImpl implements AccountService {
             CompleteTransactionRequest completeTransactionRequest = new CompleteTransactionRequest(
                     pendingTransactionResponse.getTransactionId(), time.now().toString()
             );
-            TransactionResponse finalTransactionResponse = transactionService.completeTransaction(
+            TransactionResponse finalTransactionResponse = transactionServiceFactory.get().completeTransaction(
                     completeTransactionRequest
             );
             SaveCachedResponseFromIdRequest saveCachedResponseFromIdRequest = new SaveCachedResponseFromIdRequest(
@@ -255,19 +281,14 @@ public class AccountServiceImpl implements AccountService {
             return finalTransactionResponse;
 
         } catch (IllegalArgumentException | IllegalStateException | AccountNotFoundException | JsonSyntaxException e) {
-            OperationStatus operationStatus = OperationStatus.of(
-                    "FAILURE",
-                    false,
-                    false,
-                    e.getMessage()
-            );
+            OperationStatus operationStatus = OperationStatus.failure(e.getMessage());
             GetFailureTransactionRequest  getFailureTransactionRequest = new GetFailureTransactionRequest(
                     TransactionType.DEPOSIT.getTransactionName(),
                     operationStatus.getDescription(),
                     operationStatus.getValue()
             );
 
-            return transactionService.getFailureResponse(getFailureTransactionRequest);
+            return transactionServiceFactory.get().getFailureResponse(getFailureTransactionRequest);
         }
     }
     @Override
@@ -301,7 +322,7 @@ public class AccountServiceImpl implements AccountService {
                         OperationStatus.FAILURE.getValue()
                 );
 
-                return transactionService.getFailureResponse(getFailureTransactionRequest);
+                return transactionServiceFactory.get().getFailureResponse(getFailureTransactionRequest);
             }
 
             GetCachedResponseFromIdRequest getCachedResponseFromIdRequest = new GetCachedResponseFromIdRequest(
@@ -337,7 +358,7 @@ public class AccountServiceImpl implements AccountService {
                         OperationStatus.FAILURE.getValue()
                 );
 
-                return transactionService.getFailureResponse(getFailureTransactionRequest);
+                return transactionServiceFactory.get().getFailureResponse(getFailureTransactionRequest);
             }
 
             CreateTransactionRequest createPendingWithdrawTransactionRequest = new CreateTransactionRequest(
@@ -350,7 +371,7 @@ public class AccountServiceImpl implements AccountService {
                     accountId.getValue()
             );
             TransactionResponse pendingTransactionResponse =
-                    transactionService.createWithdrawTransaction(createPendingWithdrawTransactionRequest);
+                    transactionServiceFactory.get().createWithdrawTransaction(createPendingWithdrawTransactionRequest);
 
             account.withdraw(amount, time.now());
             accountRepository.save(account);
@@ -359,7 +380,7 @@ public class AccountServiceImpl implements AccountService {
                             pendingTransactionResponse.getTransactionId(), time.now().toString()
             );
             TransactionResponse finalTransactionResponse =
-                    transactionService.completeTransaction(completeTransactionRequest);
+                    transactionServiceFactory.get().completeTransaction(completeTransactionRequest);
             SaveCachedResponseFromIdRequest saveCachedResponseFromIdRequest = new SaveCachedResponseFromIdRequest(
                     authenticatedId.getValue(),
                     idempotencyKey.getValue(),
@@ -375,19 +396,14 @@ public class AccountServiceImpl implements AccountService {
             return finalTransactionResponse;
 
         } catch (IllegalArgumentException | IllegalStateException | AccountNotFoundException | JsonSyntaxException e) {
-            OperationStatus operationStatus = OperationStatus.of(
-                    "FAILURE",
-                    false,
-                    false,
-                    e.getMessage()
-            );
+            OperationStatus operationStatus = OperationStatus.failure(e.getMessage());
             GetFailureTransactionRequest  getFailureTransactionRequest = new GetFailureTransactionRequest(
                     TransactionType.WITHDRAW.getTransactionName(),
                     operationStatus.getDescription(),
                     operationStatus.getValue()
             );
 
-            return transactionService.getFailureResponse(getFailureTransactionRequest);
+            return transactionServiceFactory.get().getFailureResponse(getFailureTransactionRequest);
         }
     }
     @Override
@@ -431,7 +447,7 @@ public class AccountServiceImpl implements AccountService {
                         transactionType.getTransactionName(), failureReason, OperationStatus.FAILURE.getValue()
                 );
 
-                return transactionService.getFailureResponse(getFailureTransactionRequest);
+                return transactionServiceFactory.get().getFailureResponse(getFailureTransactionRequest);
             }
 
             GetCachedResponseFromIdRequest getCachedResponseFromIdRequest = new GetCachedResponseFromIdRequest(
@@ -463,7 +479,7 @@ public class AccountServiceImpl implements AccountService {
                         transactionType.getTransactionName(), failureReason, OperationStatus.FAILURE.getValue()
                 );
 
-                return transactionService.getFailureResponse(getFailureTransactionRequest);
+                return transactionServiceFactory.get().getFailureResponse(getFailureTransactionRequest);
             }
 
             Account targetAccount = accountRepository.findById(targetAccountId);
@@ -477,7 +493,7 @@ public class AccountServiceImpl implements AccountService {
                     sourceAccountId.getValue(),
                     targetAccountId.getValue()
             );
-            TransactionResponse pendingTransactionResponse = transactionService.createTransferTransaction(
+            TransactionResponse pendingTransactionResponse = transactionServiceFactory.get().createTransferTransaction(
                     createPendingTransferTransactionRequest
             );
 
@@ -489,7 +505,7 @@ public class AccountServiceImpl implements AccountService {
                     pendingTransactionResponse.getTransactionId(), time.now().toString()
             );
             TransactionResponse finalTransactionResponse =
-                    transactionService.completeTransaction(completeTransactionRequest);
+                    transactionServiceFactory.get().completeTransaction(completeTransactionRequest);
             SaveCachedResponseFromIdRequest saveCachedResponseFromIdRequest = new SaveCachedResponseFromIdRequest(
                     authenticatedId.getValue(),
                     idempotencyKey.getValue(),
@@ -505,19 +521,14 @@ public class AccountServiceImpl implements AccountService {
             return finalTransactionResponse;
 
         } catch (IllegalArgumentException | IllegalStateException | AccountNotFoundException | JsonSyntaxException e) {
-            OperationStatus operationStatus = OperationStatus.of(
-                    "FAILURE",
-                    false,
-                    false,
-                    e.getMessage()
-            );
+            OperationStatus operationStatus = OperationStatus.failure(e.getMessage());
             GetFailureTransactionRequest  getFailureTransactionRequest = new GetFailureTransactionRequest(
                     TransactionType.WITHDRAW.getTransactionName(),
                     operationStatus.getDescription(),
                     operationStatus.getValue()
             );
 
-            return transactionService.getFailureResponse(getFailureTransactionRequest);
+            return transactionServiceFactory.get().getFailureResponse(getFailureTransactionRequest);
         }
     }
     @Override
@@ -565,12 +576,7 @@ public class AccountServiceImpl implements AccountService {
             return balanceResponse;
 
         } catch (IllegalArgumentException | AccountNotFoundException e) {
-            OperationStatus operationStatus = OperationStatus.of(
-                    "FAILURE",
-                    false,
-                    false,
-                    e.getMessage()
-            );
+            OperationStatus operationStatus = OperationStatus.failure(e.getMessage());
 
             return AccountMapper.failureResponseBalance(operationStatus.getDescription(), operationStatus);
         }
@@ -597,12 +603,7 @@ public class AccountServiceImpl implements AccountService {
                         isValidToken,
                         authenticatedId
                 );
-                OperationStatus operationStatus = OperationStatus.of(
-                        "FAILURE",
-                        false,
-                        true,
-                        failureReason
-                );
+                OperationStatus operationStatus = OperationStatus.failure(failureReason);
                 AccountListResponse accountListResponse = new AccountListResponse(
                         List.of(AccountMapper.failureResponse(authResponse.getCustomerId(), operationStatus)),
                         0,
@@ -632,12 +633,7 @@ public class AccountServiceImpl implements AccountService {
             return accountListResponse;
 
         } catch (IllegalArgumentException | AccountNotFoundException e) {
-            OperationStatus operationStatus = OperationStatus.of(
-                    "FAILURE",
-                    false,
-                    true,
-                    e.getMessage()
-            );
+            OperationStatus operationStatus = OperationStatus.failure(e.getMessage());
             AccountListResponse accountListResponse = new AccountListResponse(
                     List.of(AccountMapper.failureResponse(authResponse.getCustomerId(), operationStatus)),
                     0,
@@ -735,12 +731,7 @@ public class AccountServiceImpl implements AccountService {
             return response;
 
         } catch (IllegalStateException | AccountNotFoundException | JsonSyntaxException e) {
-            OperationStatus operationStatus = OperationStatus.of(
-                    "FAILURE",
-                    false,
-                    false,
-                    e.getMessage()
-            );
+            OperationStatus operationStatus = OperationStatus.failure(e.getMessage());
             AccountStatusResponse accountStatusResponse = new AccountStatusResponse(
                     null,
                     operationStatus.getValue(),
@@ -835,12 +826,7 @@ public class AccountServiceImpl implements AccountService {
             return response;
 
         } catch (IllegalStateException | IllegalArgumentException | AccountNotFoundException | JsonSyntaxException e) {
-            OperationStatus operationStatus = OperationStatus.of(
-                    "FAILURE",
-                    false,
-                    false,
-                    e.getMessage()
-            );
+            OperationStatus operationStatus = OperationStatus.failure(e.getMessage());
             AccountStatusResponse accountStatusResponse = new AccountStatusResponse(
                     null,
                     operationStatus.getValue(),
@@ -934,12 +920,7 @@ public class AccountServiceImpl implements AccountService {
             return response;
 
         } catch (IllegalStateException | IllegalArgumentException | AccountNotFoundException | JsonSyntaxException e) {
-            OperationStatus operationStatus = OperationStatus.of(
-                    "FAILURE",
-                    false,
-                    false,
-                    e.getMessage()
-            );
+            OperationStatus operationStatus = OperationStatus.failure(e.getMessage());
             AccountStatusResponse accountStatusResponse = new AccountStatusResponse(
                     null,
                     operationStatus.getValue(),
@@ -967,12 +948,7 @@ public class AccountServiceImpl implements AccountService {
                         isValidToken,
                         authenticatedId
                 );
-                OperationStatus operationStatus = OperationStatus.of(
-                        "FAILURE",
-                        false,
-                        true,
-                        failureReason
-                );
+                OperationStatus operationStatus = OperationStatus.failure(failureReason);
 
                 return AccountMapper.failureResponse(authResponse.getCustomerId(), operationStatus);
             }
@@ -996,12 +972,7 @@ public class AccountServiceImpl implements AccountService {
             return response;
 
         } catch (IllegalArgumentException | AccountNotFoundException | JsonSyntaxException e) {
-            OperationStatus operationStatus = OperationStatus.of(
-                    "FAILURE",
-                    false,
-                    false,
-                    e.getMessage()
-            );
+            OperationStatus operationStatus = OperationStatus.failure(e.getMessage());
 
             return AccountMapper.failureResponse(authResponse.getCustomerId(), operationStatus);
         }
