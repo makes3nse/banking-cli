@@ -17,14 +17,13 @@ public final class Money implements Comparable<Money>{
 
         if (amount.compareTo(BigDecimal.ZERO) < 0) {
             throw new IllegalArgumentException("Money cannot be negative" + amount);
-        } else if (amount.scale() > currency.getDefaultFractionDigits()) {
-            throw new IllegalArgumentException(
-                    String.format("Amount %s exceeds allowed decimal places for %s", amount, currency)
-            );
-        } else {
-            this.amount = amount.setScale(2, RoundingMode.HALF_EVEN);
-            this.currency = currency;
         }
+
+        int decimalPlaces = currency.getDefaultFractionDigits();
+        BigDecimal roundedAmount = amount.setScale(decimalPlaces, RoundingMode.HALF_UP);
+
+        this.amount = roundedAmount;
+        this.currency = currency;
     }
 
     public static Money of(BigDecimal amount, Currency currency) {

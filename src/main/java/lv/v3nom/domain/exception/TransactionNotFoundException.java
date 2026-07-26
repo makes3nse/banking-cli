@@ -59,4 +59,10 @@ public class TransactionNotFoundException extends RuntimeException {
         this.transactionStatus = null;
         this.createdAt = createdAt;
     }
+
+    public TransactionId getTransactionId() { return transactionId; }
+    public AccountId getAccountId() { return accountId; }
+    public TransactionType getTransactionType() { return transactionType; }
+    public TransactionStatus getTransactionStatus() { return transactionStatus; }
+    public LocalDateTime getCreatedAt() { return createdAt; }
 }

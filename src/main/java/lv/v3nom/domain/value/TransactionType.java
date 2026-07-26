@@ -17,11 +17,21 @@ public final class TransactionType {
             String transactionCode,
             String transactionName,
             boolean affectsBalance,
-            boolean requiresRecipient
-    ) {
-        if (transactionCode == null || transactionCode.isBlank()) {
-            throw new IllegalArgumentException("Transaction type cannot be null or blank");
+            boolean requiresRecipient) {
+
+        if (transactionCode == null) {
+            throw new IllegalArgumentException("Transaction Type Code cannot be null");
         }
+        if (transactionCode.isBlank()) {
+            throw new IllegalArgumentException("Transaction Type Code cannot be blank");
+        }
+        if (transactionName == null) {
+            throw new IllegalArgumentException("Transaction Type Name cannot be null");
+        }
+        if (transactionName.isBlank()) {
+            throw new IllegalArgumentException("Transaction Type Name cannot be blank");
+        }
+
         this.transactionCode = transactionCode;
         this.transactionName = transactionName;
         this.affectsBalance = affectsBalance;

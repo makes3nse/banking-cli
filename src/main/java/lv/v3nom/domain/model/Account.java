@@ -149,6 +149,26 @@ public class Account {
         this.accountStatus = AccountStatus.ACTIVE;
         this.updatedAt = updatedAt;
     }
+    public void  block(LocalDateTime updatedAt) {
+        if (this.accountStatus == AccountStatus.BLOCKED) {
+            throw new IllegalStateException("Cannot block already blocked account");
+        }
+        if (this.accountStatus == AccountStatus.CLOSED) {
+            throw new IllegalStateException("Cannot block closed account");
+        }
+        this.accountStatus = AccountStatus.BLOCKED;
+        this.updatedAt = updatedAt;
+    }
+    public void  unblock(LocalDateTime updatedAt) {
+        if (this.accountStatus == AccountStatus.CLOSED) {
+            throw new IllegalStateException("Cannot unblock closed account");
+        }
+        if (this.accountStatus != AccountStatus.BLOCKED) {
+            throw new IllegalStateException("Account is not blocked");
+        }
+        this.accountStatus = AccountStatus.ACTIVE;
+        this.updatedAt = updatedAt;
+    }
 
     public AccountId getAccountId() { return accountId; }
     public CustomerId getOwnerId() { return ownerId; }
