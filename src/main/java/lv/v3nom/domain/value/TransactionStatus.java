@@ -10,11 +10,14 @@ public final class TransactionStatus {
     private static final Map<String, TransactionStatus> CACHE = new HashMap<>();
 
     private TransactionStatus(String value) {
-        if (value.isBlank() || value == null) {
+        if (value == null) {
             throw new IllegalArgumentException("Status cannot be null");
-        } else {
-            this.value = value;
         }
+        if (value.isBlank()) {
+            throw new IllegalArgumentException("Status cannot be blank");
+        }
+
+        this.value = value;
     }
 
     public static final TransactionStatus PENDING =
