@@ -1,8 +1,13 @@
+data/
 target/
 !.mvn/wrapper/maven-wrapper.jar
 !**/src/main/**/target/
 !**/src/test/**/target/
 .kotlin
+
+### Project Generated Data ###
+.session
+.user
 
 ### IntelliJ IDEA ###
 .idea/modules.xml
