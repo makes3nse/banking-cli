@@ -91,7 +91,7 @@
         <dependency>
             <groupId>org.assertj</groupId>
             <artifactId>assertj-core</artifactId>
-            <version>3.27.3</version>
+            <version>3.27.7</version>
             <scope>test</scope>
         </dependency>
     </dependencies>
@@ -125,76 +125,3 @@
         </plugins>
     </build>
 </project>
-
-        <!--
-        <?xml version="1.0" encoding="UTF-8"?>
-        <project xmlns="http://maven.apache.org/POM/4.0.0"
-                 xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-                 xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
-            <modelVersion>4.0.0</modelVersion>
-
-            <groupId>lv.v3nom</groupId>
-            <artifactId>banking-cli</artifactId>
-            <version>1.0-SNAPSHOT</version>
-
-            <dependencies>
-                &lt;!&ndash; Source: https://mvnrepository.com/artifact/org.mindrot/jbcrypt &ndash;&gt;
-                <dependency>
-                    <groupId>org.mindrot</groupId>
-                    <artifactId>jbcrypt</artifactId>
-                    <version>0.4</version>
-                    <scope>compile</scope>
-                </dependency>
-                &lt;!&ndash; Source: https://mvnrepository.com/artifact/com.google.code.gson/gson &ndash;&gt;
-                <dependency>
-                    <groupId>com.google.code.gson</groupId>
-                    <artifactId>gson</artifactId>
-                    <version>2.10.1</version>
-                    <scope>compile</scope>
-                </dependency>
-                &lt;!&ndash; Source: https://mvnrepository.com/artifact/org.assertj/assertj-core &ndash;&gt;
-                <dependency>
-                    <groupId>org.assertj</groupId>
-                    <artifactId>assertj-core</artifactId>
-                    <version>4.0.0-M1</version>
-                    <scope>test</scope>
-                </dependency>
-                &lt;!&ndash; Source: https://mvnrepository.com/artifact/org.mockito/mockito-junit-jupiter &ndash;&gt;
-                <dependency>
-                    <groupId>org.mockito</groupId>
-                    <artifactId>mockito-junit-jupiter</artifactId>
-                    <version>5.23.0</version>
-                    <scope>test</scope>
-                </dependency>
-
-                <dependency>
-                    <groupId>org.junit.jupiter</groupId>
-                    <artifactId>junit-jupiter</artifactId>
-                    <version>5.10.0</version>
-                    <scope>test</scope>
-                </dependency>
-                <dependency>
-                    <groupId>org.mockito</groupId>
-                    <artifactId>mockito-core</artifactId>
-                    <version>5.6.0</version>
-                    <scope>test</scope>
-                </dependency>
-                <dependency>
-                    <groupId>junit</groupId>
-                    <artifactId>junit</artifactId>
-                    <version>4.13.2</version>
-                    <scope>compile</scope>
-                </dependency>
-            </dependencies>
-
-            <properties>
-                <maven.compiler.source>25</maven.compiler.source>
-                <maven.compiler.target>25</maven.compiler.target>
-                <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-                &lt;!&ndash; Add Surefire version property &ndash;&gt;
-                <surefire.version>3.2.5</surefire.version>
-                <junit.jupiter.version>5.10.0</junit.jupiter.version>
-                <mockito.version>5.6.0</mockito.version>
-            </properties>
-
-        </project>-->
