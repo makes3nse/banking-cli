@@ -5,10 +5,15 @@ public final class PhoneNumber {
     private final String value;
 
     private PhoneNumber(String value) {
-        String valueCleaned = value.trim();
-        if (value == null || value.isBlank()) {
-            throw new IllegalArgumentException("Phone number cannot be blank or null");
+        if (value == null) {
+            throw new IllegalArgumentException("Phone number cannot be null");
         }
+        if (value.isBlank()) {
+            throw new IllegalArgumentException("Phone number cannot be blank");
+        }
+
+        String valueCleaned = value.trim();
+
         if (!(valueCleaned.matches(".*\\d.*"))) {
             throw new IllegalArgumentException("Phone number must contain digits");
         }
@@ -24,7 +29,7 @@ public final class PhoneNumber {
                 throw new IllegalArgumentException("Phone number contains invalid characters");
             }
         }
-        
+
         String digitsOnly = valueCleaned.replaceAll("[^\\d]", "");
         if (digitsOnly.length() < 5) {
             throw new IllegalArgumentException("Phone number too short (minimum 5 digits)");
@@ -33,7 +38,7 @@ public final class PhoneNumber {
             throw new IllegalArgumentException("Phone number too long (maximum 15 digits for E.164)");
         }
 
-        this.value = value;
+        this.value = valueCleaned;
     }
 
     public static PhoneNumber of(String existingNumber) {
