@@ -19,8 +19,11 @@ public final class Token {
     }
 
     public static Token create(String value, LocalDateTime expiry, CustomerId customerId, LocalDateTime now) {
-        if (value == null || value.isBlank()) {
-            throw new IllegalArgumentException("Token value cannot be empty or null");
+        if (value == null) {
+            throw new IllegalArgumentException("Token value cannot be null");
+        }
+        if (value.isBlank()) {
+            throw new IllegalArgumentException("Token value cannot be blank");
         }
         if (expiry == null) {
             throw new IllegalArgumentException("Expire date is null");
@@ -57,12 +60,15 @@ public final class Token {
     public int hashCode() {
         return Objects.hash(value, expiry, customerId);
     }
-    @Override
-    public String toString() {
+    public String toStringFormatted() {
         return String.format(
                 "%s{expiry:%s, customerId:%s}",
                 value, expiry, customerId
         );
+    }
+    @Override
+    public String toString() {
+        return value;
     }
 
     public String getValue() { return this.value; }

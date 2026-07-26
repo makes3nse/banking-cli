@@ -7,8 +7,11 @@ public final class TransactionId {
     private final String value;
 
     private TransactionId(String value) {
-        if (value == null || value.isBlank()) {
-            throw new IllegalArgumentException("Transaction ID cannot be null or blank");
+        if (value == null) {
+            throw new IllegalArgumentException("Transaction ID cannot be null");
+        }
+        if (value.isBlank()) {
+            throw new IllegalArgumentException("Transaction ID cannot be blank");
         }
         this.value = value;
     }

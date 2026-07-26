@@ -9,8 +9,11 @@ public final class CustomerStatus {
     private static final Map<String, CustomerStatus> CACHE = new HashMap<>();
 
     private CustomerStatus(String value) {
-        if (value.isBlank() || value == null) {
-            throw new IllegalArgumentException("Status cannot be blank or null");
+        if (value == null) {
+            throw new IllegalArgumentException("Status cannot be null");
+        }
+        if (value.isBlank()) {
+            throw new IllegalArgumentException("Status cannot be blank");
         }
         this.value = value;
     }

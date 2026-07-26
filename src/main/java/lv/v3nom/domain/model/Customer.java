@@ -13,7 +13,7 @@ public class Customer {
     private EmailAddress email;
     private PhoneNumber phoneNumber;
     private Password password;
-    private transient PasswordHasher hasher;
+    private final transient PasswordHasher hasher;
     private final LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
@@ -47,18 +47,50 @@ public class Customer {
                                     LocalDateTime createdAt) {
 
         try {
+            // Add null checks here too if you want
+            if (name == null || name.isBlank()) {
+                throw new IllegalArgumentException("Name cannot be null");
+            }
+            if (name.length() < 2 || name.length() > 56) {
+                throw new IllegalArgumentException("Name length is inappropriate");
+            }
+            if (email == null || email.isBlank()) {
+                throw new IllegalArgumentException("Email cannot be null");
+            }
+            if (phone == null || phone.isBlank()) {
+                throw new IllegalArgumentException("Phone cannot be null");
+            }
+            if (rawPassword == null || rawPassword.isBlank()) {
+                throw new IllegalArgumentException("Password cannot be null");
+            }
+            if (hasher == null) {
+                throw new IllegalArgumentException("PasswordHasher cannot be null");
+            }
+            if (createdAt == null) {
+                throw new IllegalArgumentException("CreatedAt cannot be null");
+            }
+
+            StringBuilder cleanedName = new StringBuilder();
+            for (int i = 0; i < name.length(); i++) {
+                char currentChar = name.charAt(i);
+                if (i > 0 && (currentChar == ' ' && name.charAt(i-1) == ' ')) {
+                    continue;
+                }
+                cleanedName.append(name.charAt(i));
+            }
+
             return new Customer(
                     CustomerId.generate(),
                     Role.CUSTOMER,
                     CustomerStatus.ACTIVE,
-                    name.trim(),
-                    EmailAddress.of(email),
-                    PhoneNumber.of(phone),
+                    cleanedName.toString().trim(),
+                    EmailAddress.of(email.trim()),
+                    PhoneNumber.of(phone.trim()),
                     Password.fromRaw(rawPassword, hasher),
                     hasher,
                     createdAt);
 
-        } catch (IllegalArgumentException e) {
+        } catch (IllegalArgumentException | NullPointerException e) {
             throw new IllegalArgumentException(e);
         }
     }
@@ -83,11 +115,13 @@ public class Customer {
             throw new IllegalStateException(
                     "Name change available only for ACTIVE customer accounts");
         }
-        if (newName.isBlank() || newName == null) {
-            throw new IllegalArgumentException(
-                    "New customer name cannot be blank or null");
+        if (newName == null) {
+            throw new IllegalArgumentException("New customer name cannot be null");
         }
-        if (newName.length() < 3 || newName.length() > 45) {
+        if (newName.isBlank()) {
+            throw new IllegalArgumentException("New customer name cannot be blank");
+        }
+        if (newName.length() < 2 || newName.length() > 56) {
             throw new IllegalArgumentException(
                     "Exceptional name length: " + newName.length()
                             + String.format(". Allowed name length from %s to %s characters.", 3, 45));

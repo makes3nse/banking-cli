@@ -7,8 +7,11 @@ public final class EmailAddress {
     private final String value;
 
     private EmailAddress(String value) {
-        if (value == null || value.isBlank()) {
-            throw new IllegalArgumentException("Email address cannot be blank or null");
+        if (value == null) {
+            throw new IllegalArgumentException("Email cannot be null");
+        }
+        if (value.isBlank()) {
+            throw new IllegalArgumentException("Email cannot be blank");
         }
         String regex = "^.+@.+\\..+$";
         if (!Pattern.matches(regex, value)) {

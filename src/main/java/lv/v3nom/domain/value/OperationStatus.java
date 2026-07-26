@@ -16,8 +16,11 @@ public final class OperationStatus {
                             boolean isStable,
                             String description) {
 
-        if (value == null || value.isBlank()) {
-            throw new IllegalArgumentException("Operation Status cannot be null or empty");
+        if (value == null) {
+            throw new IllegalArgumentException("Operation Status cannot be null");
+        }
+        if (value.isBlank()) {
+            throw new IllegalArgumentException("Operation Status cannot be blank");
         }
 
         this.value = value;
