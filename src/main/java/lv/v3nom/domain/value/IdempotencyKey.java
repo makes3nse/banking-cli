@@ -8,8 +8,11 @@ public final class IdempotencyKey {
     private final String value;
 
     private IdempotencyKey(String value) {
-        if (value == null || value.isBlank()) {
-            throw new IllegalArgumentException("Idempotency Key cannot be null or blank");
+        if (value == null) {
+            throw new IllegalArgumentException("Idempotency Key cannot be null");
+        }
+        if (value.isBlank()) {
+            throw new IllegalArgumentException("Idempotency Key cannot be blank");
         }
         if (!IdGenerationRules.UUID_PATTERN.matcher(value).matches()) {
             throw new IllegalArgumentException("Invalid Idempotency Key format");
