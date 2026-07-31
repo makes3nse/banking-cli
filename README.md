@@ -1,6 +1,6 @@
-﻿# Banking backend via CLI (Non HTTP) >> TOMCAT in later versions
+﻿# Banking backend
 
-A semi-realistic banking command-line interface built to:
+A semi-realistic banking interface built to:
 1. Test and validate a custom Dependency Injection container implementation.
 2. Design and fully understand DDD architecture.
 3. Solve a real-world problem
@@ -9,7 +9,7 @@ A semi-realistic banking command-line interface built to:
 
 ## Overview
 
-This project simulates a banking system with a CLI interface, following clean architecture principles. The primary goal is to design and fully understand Value Objects, design better and clean Entities, and get a better vision on all hidden architectural concepts hidden under frameworks in Spring Boot, to improve general Java knowledge. Also, the goal is to verify DI container functionality—service resolution, dependency injection, and lifecycle management—in a non-trivial, real-world context.
+This project simulates a banking system, following clean architecture principles. The primary goal is to design and fully understand Value Objects, design better and clean Entities, and get a better vision on all hidden architectural concepts hidden under frameworks in Spring Boot, to improve general Java knowledge. Also, the goal is to verify DI container functionality—service resolution, dependency injection, and lifecycle management—in a non-trivial, real-world context.
 
 ## Features
 
